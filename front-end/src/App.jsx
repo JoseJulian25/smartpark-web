@@ -1,25 +1,28 @@
-import React from 'react'
+
 import './App.css'
-import { useState } from 'react'
+
 import { useEffect } from 'react'
+import client from "./api/client";
 
 function App() {
-
-  const [testMessage, setTestMessage] = useState(null)
-
   useEffect(() => {
-      fetch('http://localhost:8080/test/hello')
-        .then(response => response.json())
-        .then(data => setTestMessage(data.message))
-    .catch(error => console.error('Error fetching test message:', error))
-
-  }, [])
+  const testApi = async () => {
+      try {
+        const response = await client.get("/test/hello"); 
+        console.log(" Respuesta del backend:", response.data);
+      } catch (error) {
+        console.error(" Error al conectar con la API:", error);
+      }
+    };
+    testApi();
+ }, []);
   
   return (
     <div className="app-root">
       <h1>Parking System</h1>
-        <p>Test fetch result: {testMessage ?? 'Cargando...'}</p>
+        <p>Test fetch result: {'Cargando...'}</p>        
     </div>
+    
   )
 }
 
