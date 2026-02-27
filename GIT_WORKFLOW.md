@@ -10,14 +10,14 @@ Trabajar en paralelo sin pisarnos el código, con un sistema simple y seguro.
 ```
 main (producción, siempre funcional)
   ↓
-develop (integración, donde se unen todas las features)
+dev (integración, donde se unen todas las features)
   ↓
 feature/nombre-de-la-tarea (tu código personal)
 ```
 
 **Reglas sagradas:**
 - ❌ **NUNCA** hacer commit directo a `main`
-- ❌ **NUNCA** hacer commit directo a `develop`
+- ❌ **NUNCA** hacer commit directo a `dev`
 - ✅ **SIEMPRE** trabajar en tu rama `feature/...`
 - ✅ **SIEMPRE** hacer Pull Request para unir tu código
 
@@ -45,7 +45,7 @@ cd parking-system
 ### 4. Verificar rama actual
 ```bash
 git branch
-# Deberías ver: * develop
+# Deberías ver: * dev
 ```
 
 ---
@@ -56,11 +56,11 @@ git branch
 Actualiza tu código con los últimos cambios del equipo:
 
 ```bash
-# 1. Asegúrate de estar en develop
-git checkout develop
+# 1. Asegúrate de estar en dev
+git checkout dev
 
 # 2. Descarga los últimos cambios
-git pull origin develop
+git pull origin dev
 ```
 
 ---
@@ -153,7 +153,7 @@ git push
 ### **PASO 6: Responder a Code Review**
 
 El líder revisará tu código y puede:
-- ✅ **Aprobar:** Tu código pasa → se hace merge a `develop`
+- ✅ **Aprobar:** Tu código pasa → se hace merge a `dev`
 - 💬 **Comentar cambios:** Tienes que hacer ajustes
 
 Si te piden cambios:
@@ -173,14 +173,14 @@ git push
 
 ### **PASO 7: Después del Merge**
 
-Tu código ya está en `develop`, ahora limpia:
+Tu código ya está en `dev`, ahora limpia:
 
 ```bash
-# Volver a develop
-git checkout develop
+# Volver a dev
+git checkout dev
 
 # Traer tu código ya mergeado
-git pull origin develop
+git pull origin dev
 
 # Borrar tu rama local (ya no la necesitas)
 git branch -d feature/tu-rama-vieja
@@ -227,13 +227,13 @@ git add archivo-con-conflicto.js
 git commit -m "fix: resolver conflicto en archivo X"
 ```
 
-### "Necesito traer cambios de develop a mi rama"
+### "Necesito traer cambios de dev a mi rama"
 ```bash
 # Estando en tu rama feature
 git checkout feature/mi-rama
 
-# Traer cambios de develop
-git merge develop
+# Traer cambios de dev
+git merge dev
 
 # Si hay conflictos, resuélvelos como arriba
 ```
@@ -255,7 +255,7 @@ git branch
 
 ```
 DÍA 1:
-  develop (actualizado)
+  dev (actualizado)
     ↓
   feature/mi-tarea (creas rama)
     ↓
@@ -278,9 +278,9 @@ DÍA 2:
     ↓
   Aprobación ✅
     ↓
-  Merge a develop
+  Merge a dev
     ↓
-  git checkout develop
+  git checkout dev
   git pull
   (ya tienes tu código + el de todos)
 
@@ -296,7 +296,7 @@ SIGUIENTE TAREA:
 - [ ] Mi código funciona (lo probé localmente)
 - [ ] No hay archivos innecesarios (node_modules, .env, archivos de editor)
 - [ ] Los mensajes de commit son descriptivos
-- [ ] Actualicé mi rama con develop (`git merge develop`)
+- [ ] Actualicé mi rama con dev (`git merge dev`)
 - [ ] Le agregué descripción clara al PR
 - [ ] Asigné un reviewer
 
@@ -304,7 +304,7 @@ SIGUIENTE TAREA:
 
 ## 🚫 Errores Comunes y Cómo Evitarlos
 
-### ❌ Error: "No tengo permisos para push a develop"
+### ❌ Error: "No tengo permisos para push a dev"
 **Solución:** Estás en la rama equivocada. Cambia a tu feature:
 ```bash
 git checkout feature/tu-rama
@@ -325,7 +325,7 @@ target/
 ### ❌ Error: "Dice que tengo conflictos pero no sé qué hacer"
 **Solución:** Pide ayuda al líder en pair programming. Es normal al inicio.
 
-### ❌ Error: "Hice commit en develop sin querer"
+### ❌ Error: "Hice commit en dev sin querer"
 **Solución:** 
 ```bash
 # Deshacer el commit (mantener cambios)
@@ -348,7 +348,7 @@ git push -u origin feature/mi-tarea
 
 1. Crea una rama de prueba:
 ```bash
-git checkout develop
+git checkout dev
 git pull
 git checkout -b feature/practica-tu-nombre
 ```
@@ -410,8 +410,8 @@ Si algo no funciona:
 
 ```bash
 # === INICIO DEL DÍA ===
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 git checkout -b feature/mi-tarea
 
 # === TRABAJAR ===
@@ -426,8 +426,8 @@ git push -u origin feature/mi-tarea
 Crear Pull Request → Asignar al líder → Esperar review
 
 # === DESPUÉS DEL MERGE ===
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 ```
 
 ---
