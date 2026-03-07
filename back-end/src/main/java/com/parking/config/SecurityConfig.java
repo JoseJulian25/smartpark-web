@@ -1,5 +1,7 @@
 package com.parking.config;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -13,11 +15,15 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -40,10 +46,13 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                .requestMatchers(HttpMethod.GET, "/test/hello").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authenticationEntryPoint())
+                .accessDeniedHandler(accessDeniedHandler())
+            );
 
         return http.build();
     }
@@ -63,6 +72,34 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
+    }
+
+    // Responde con 401 JSON cuando el request llega sin token (o con token inválido) a una ruta protegida
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, ex) -> writeJson(response, HttpServletResponse.SC_UNAUTHORIZED,
+                "No autorizado", "Se requiere autenticación para acceder a este recurso", request.getRequestURI());
+    }
+
+    // Responde con 403 JSON cuando el token es válido pero el rol no tiene permisos
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, ex) -> writeJson(response, HttpServletResponse.SC_FORBIDDEN,
+                "Prohibido", "No tienes permisos para acceder a este recurso", request.getRequestURI());
+    }
+
+    private void writeJson(HttpServletResponse response, int status, String error,
+                           String message, String path) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        String timestamp = LocalDateTime.now().toString();
+        response.getWriter().write(
+                "{\"status\":" + status + "," +
+                "\"error\":\"" + error + "\"," +
+                "\"message\":\"" + message + "\"," +
+                "\"timestamp\":\"" + timestamp + "\"," +
+                "\"path\":\"" + path + "\"}"
+        );
     }
 
     @Bean
