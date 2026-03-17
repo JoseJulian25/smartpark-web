@@ -33,7 +33,9 @@ export const AuthProvider = ({ children }) => {
 
     return {
       success: false,
-      message: error || "Error al iniciar sesión",
+      message: typeof error === "string" 
+      ? error 
+      : "Usuario o contraseña inválidos",
     };
   }
 };
@@ -45,10 +47,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkAuth = () => {
-    const token = localStorage.getItem("authToken");
-    if (token) setIsAuthenticated(true);
-    setLoading(false);
-  };
+  const token = localStorage.getItem("authToken");
+
+  if (token) {
+    setIsAuthenticated(true);
+  } else {
+    setIsAuthenticated(false);
+  }
+
+  setLoading(false);
+};
 
   useEffect(() => {
     checkAuth();
