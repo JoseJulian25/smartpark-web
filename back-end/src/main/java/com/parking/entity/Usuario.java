@@ -34,7 +34,12 @@ public class Usuario {
     @Size(max = 50)
     @Column(unique = true, nullable = false)
     private String username;
-    
+
+    @NotBlank
+    @Size(max = 100)
+    @Column(nullable = false)
+    private String nombre;
+
     @NotBlank
     @Column(nullable = false, length = 255)
     private String password;

@@ -5,95 +5,53 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const[isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const login = async (username, password) => {
-  try {
+    try {
+      const response = await client.post("/auth/login", { username, password });
+      const data = response.data;
+      console.log("Respuesta login:", response.data);
 
-    const response = await client.post("/auth/login", {
-      username: username,
-      password: password
-    });
+      localStorage.setItem("authToken", data.token);
 
-    const { token, user } = response.data;
+      const userData = {
+        username: data.username,
+        nombre: data.nombre,
+        rol: data.rol,
+      };
 
-    localStorage.setItem("authToken", token);
+      setUser(userData);
+      setIsAuthenticated(true);
 
-    setUser(user);
-    setIsAuthenticated(true);
+      return true;
+    } catch (error) {
+      console.error("Error en login:", error);
+      return false;
+    }
+  };
 
-    return true;
-
-  } catch (error) {
-    console.error("Error en login:", error);
-    return false;
-  }
-};
-
-const logout = async () => {
-
-  try {
-    await client.post("/auth/logout");
-  } catch (error) {
-    console.warn("Error cerrando sesión:", error);
-  }
-
-  localStorage.removeItem("authToken");
-
-  setUser(null);
-  setIsAuthenticated(false);
-};
-
-const checkAuth = async () => {
-
-  const token = localStorage.getItem("authToken");
-
-  if (!token) {
-    setLoading(false);
-    return;
-  }
-
-  try {
-
-    const response = await client.get("/auth/me");
-
-    setUser(response.data);
-    setIsAuthenticated(true);
-
-  } catch (error) {
-
+  const logout = () => {
     localStorage.removeItem("authToken");
+    setUser(null);
+    setIsAuthenticated(false);
+  };
 
-  } finally {
-
+  const checkAuth = () => {
+    const token = localStorage.getItem("authToken");
+    if (token) setIsAuthenticated(true);
     setLoading(false);
+  };
 
-  }
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
+  return (
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
-
-useEffect(() => {
-  checkAuth();
-}, []);
-
-const value = {
-  user,
-  isAuthenticated,
-  loading,
-  login,
-  logout
-};
-return (
-  <AuthContext.Provider value={value}>
-    {children}
-  </AuthContext.Provider>
-);
-
-};
-
-
-
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);
