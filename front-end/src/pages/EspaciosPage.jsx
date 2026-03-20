@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
-import { getEspacios } from "../api/espacios";
+import { getEspacios, updateEstadoEspacio } from "../api/espacios";
 
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
-import { Car, Bike } from "lucide-react";
+import EspacioEstadoDialog from "../components/espacios/EspacioEstadoDialog";
+
+import { Car, Bike, Settings } from "lucide-react";
 
 export function EspaciosPage() {
   const [espacios, setEspacios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
+
+  const [selectedEspacio, setSelectedEspacio] = useState(null);
+  const [openDialog, setOpenDialog] = useState(false);
 
   useEffect(() => {
     fetchEspacios();
@@ -22,14 +26,38 @@ export function EspaciosPage() {
       setLoading(true);
       const data = await getEspacios();
       setEspacios(data);
+      setError("");
     } catch (err) {
-      setError("Error cargando espacios");
+      setError(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 📊 Derivados
+  const handleOpenDialog = (espacio) => {
+    setSelectedEspacio(espacio);
+    setOpenDialog(true);
+  };
+
+  const handleUpdateEstado = async (nuevoEstado) => {
+    try {
+      await updateEstadoEspacio(selectedEspacio.id, nuevoEstado);
+
+      setEspacios((prev) =>
+        prev.map((e) =>
+          e.id === selectedEspacio.id ? { ...e, estado: nuevoEstado } : e
+        )
+      );
+
+      setOpenDialog(false);
+      setSelectedEspacio(null);
+      setError("");
+    } catch (err) {
+      setError(err);
+      throw err; 
+    }
+  };
+
   const espaciosCarros = espacios.filter(
     (e) => e.tipoVehiculo === "CARRO"
   );
@@ -44,7 +72,6 @@ export function EspaciosPage() {
     reservado: espacios.filter((e) => e.estado === "RESERVADO").length,
   };
 
-  // 🎨 Colores
   const getStatusColor = (estado) => {
     switch (estado) {
       case "LIBRE":
@@ -71,7 +98,6 @@ export function EspaciosPage() {
     }
   };
 
-  // 🧱 Render grid
   const renderEspacios = (lista) => {
     if (!lista.length) return <p>No hay espacios disponibles</p>;
 
@@ -83,10 +109,17 @@ export function EspaciosPage() {
           return (
             <div
               key={space.id}
-              className={`relative p-4 rounded-lg border-2 transition-all ${getStatusColor(
+              className={`relative group p-4 rounded-lg border-2 transition-all ${getStatusColor(
                 space.estado
               )}`}
             >
+              <button
+                onClick={() => handleOpenDialog(space)}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition bg-black/70 text-white p-1 rounded"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
               <div className="text-center">
                 <p className="text-2xl font-bold mb-1">
                   {space.numero}
@@ -114,13 +147,10 @@ export function EspaciosPage() {
     );
   };
 
-  // ⏳ Estados UI
   if (loading) return <p>Cargando espacios...</p>;
-  if (error) return <p>{error}</p>;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold mb-2">
           Gestión de Espacios
@@ -130,7 +160,12 @@ export function EspaciosPage() {
         </p>
       </div>
 
-      {/* Stats */}
+      {error && (
+        <div className="bg-red-100 border border-red-300 text-red-600 p-3 rounded">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-4">
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-sm">Libres</p>
@@ -154,7 +189,6 @@ export function EspaciosPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <Card>
         <CardHeader>
           <CardTitle>Espacios del Parqueo</CardTitle>
@@ -185,31 +219,13 @@ export function EspaciosPage() {
         </CardContent>
       </Card>
 
-      {/* Leyenda */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Leyenda</CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-green-100 border border-green-300 rounded"></div>
-              <span>Libre</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-red-100 border border-red-300 rounded"></div>
-              <span>Ocupado</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-100 border border-yellow-300 rounded"></div>
-              <span>Reservado</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {openDialog && selectedEspacio && (
+        <EspacioEstadoDialog
+          espacio={selectedEspacio}
+          onClose={() => setOpenDialog(false)}
+          onSave={handleUpdateEstado}
+        />
+      )}
     </div>
   );
 }
