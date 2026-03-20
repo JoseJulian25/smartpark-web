@@ -15,7 +15,6 @@ export const addEspaciosLote = async (payload) => {
   return data;
 };
 
-
 export const deleteEspacio = async (id) => {
   const { data } = await client.delete(`/espacios/${id}`);
   return data;
