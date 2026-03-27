@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.parking.config.JwtUtil;
 import com.parking.dto.LoginRequestDTO;
 import com.parking.dto.LoginResponseDTO;
+import com.parking.dto.MeResponseDTO;
 import com.parking.entity.Usuario;
 import com.parking.repository.UsuarioRepository;
 
@@ -46,4 +47,16 @@ public class AuthService {
                 usuario.getRol().getNombre()
         );
     }
+
+    public MeResponseDTO getMe(String username) {
+        Usuario usuario = usuarioRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+
+        return new MeResponseDTO(
+                usuario.getUsername(),
+                usuario.getNombre(),
+                usuario.getRol().getNombre()
+        );
+    }
 }
+

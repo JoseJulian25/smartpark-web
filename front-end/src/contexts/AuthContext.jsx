@@ -9,34 +9,29 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const login = async (username, password) => {
-  try {
-    const response = await client.post("/auth/login", { username, password });
-    const data = response.data;
+    try {
+      const response = await client.post("/auth/login", { username, password });
+      const data = response.data;
 
-  
+      localStorage.setItem("authToken", data.token);
 
-    const userData = {
-      username: data.username,
-      nombre: data.nombre,
-      rol: data.rol,
-    };
-    localStorage.setItem("authToken", data.token);
-    localStorage.setItem("userData", JSON.stringify(userData));
+      setUser({
+        username: data.username,
+        nombre: data.nombre,
+        rol: data.rol,
+      });
+      setIsAuthenticated(true);
 
-    setUser(userData);
-    setIsAuthenticated(true);
-
-    return {success: true};
-
-  } catch (error) {
-    return {
-      success: false,
-      message: typeof error === "string" 
-      ? error 
-      : "Usuario o contraseña inválidos",
-    };
-  }
-};
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: typeof error === "string"
+          ? error
+          : "Usuario o contraseña inválidos",
+      };
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem("authToken");
@@ -44,17 +39,27 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  const checkAuth = () => {
-  const token = localStorage.getItem("authToken");
+  const checkAuth = async () => {
+    const token = localStorage.getItem("authToken");
 
-  if (token) {
-    setIsAuthenticated(true);
-  } else {
-    setIsAuthenticated(false);
-  }
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-  setLoading(false);
-};
+    try {
+      const response = await client.get("/auth/me");
+      setUser(response.data);
+      setIsAuthenticated(true);
+    } catch {
+      // Token inválido o expirado — limpiar sesión
+      localStorage.removeItem("authToken");
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     checkAuth();
@@ -67,3 +72,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 export const useAuth = () => useContext(AuthContext);
+
