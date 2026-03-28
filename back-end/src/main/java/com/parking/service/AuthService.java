@@ -37,7 +37,7 @@ public class AuthService {
         String token = jwtUtil.generateToken(dto.getUsername());
 
         // 3. Cargar datos completos del usuario para el response
-        Usuario usuario = usuarioRepository.findByUsername(dto.getUsername())
+        Usuario usuario = usuarioRepository.findByUsernameAndActivoTrueAndEliminadoFalse(dto.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + dto.getUsername()));
 
         return new LoginResponseDTO(
@@ -49,7 +49,7 @@ public class AuthService {
     }
 
     public MeResponseDTO getMe(String username) {
-        Usuario usuario = usuarioRepository.findByUsername(username)
+                Usuario usuario = usuarioRepository.findByUsernameAndActivoTrueAndEliminadoFalse(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
 
         return new MeResponseDTO(

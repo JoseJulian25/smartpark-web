@@ -50,6 +50,12 @@ public class Usuario {
     
     @Column(nullable = false)
     private Boolean activo = true;
+
+    @Column(nullable = false)
+    private Boolean eliminado = false;
+
+    @Column(name = "fecha_eliminacion")
+    private LocalDateTime fechaEliminacion;
     
     @CreationTimestamp
     @Column(name = "fecha_creacion", updatable = false)
