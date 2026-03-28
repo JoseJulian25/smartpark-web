@@ -62,7 +62,7 @@ export const Layout = () => {
                 }
               }}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${isActive ? "bg-blue-600 text-white" : "text-gray-700 hover:bg-gray-100"
+                `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${isActive ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-slate-200/70"
                 }`
               }
             >
@@ -88,8 +88,8 @@ export const Layout = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <aside className="hidden w-64 border-r bg-white md:flex md:flex-col">
+    <div className="flex min-h-screen bg-background">
+      <aside className="hidden w-64 border-r bg-card md:flex md:flex-col">
         <MenuContent />
       </aside>
 
@@ -99,7 +99,7 @@ export const Layout = () => {
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
+        <SheetContent side="left" className="w-64 bg-card p-0">
           <MenuContent closeOnNavigate />
         </SheetContent>
       </Sheet>

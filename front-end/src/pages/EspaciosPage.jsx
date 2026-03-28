@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 
 import { getEspacios, updateEstadoEspacio, addEspaciosLote, deleteEspacio } from "../api/espacios";
 
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
+import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Button } from "../components/ui/button";
 
 import EspacioEstadoDialog from "../components/espacios/EspacioEstadoDialog";
 import AddEspaciosDialog from "../components/espacios/AddEspaciosDialog";
+import EspacioCard from "../components/espacios/EspacioCard";
 
 
-import { Car, Bike, Settings, Plus } from "lucide-react";
+import { Car, Bike, Plus } from "lucide-react";
 
 export function EspaciosPage() {
   const [espacios, setEspacios] = useState([]);
@@ -115,87 +115,23 @@ const handleDeleteEspacio = async (id) => {
     reservado: espacios.filter((e) => e.estado === "RESERVADO").length,
   };
 
-  const getStatusColor = (estado) => {
-    switch (estado) {
-      case "LIBRE":
-        return "bg-green-100 border-green-300";
-      case "OCUPADO":
-        return "bg-red-100 border-red-300";
-      case "RESERVADO":
-        return "bg-yellow-100 border-yellow-300";
-      default:
-        return "bg-gray-100 border-gray-300";
-    }
-  };
-
-  const getStatusBadgeVariant = (estado) => {
-    switch (estado) {
-      case "LIBRE":
-        return "secondary";
-      case "OCUPADO":
-        return "destructive";
-      case "":
-        return "outline";
-
-      default:
-        return "secondary";
-    }
-  };
-
   const renderEspacios = (lista) => {
     if (!lista.length) return <p>No hay espacios disponibles</p>;
 
     return (
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-        {lista.map((space) => {
-          const ticket = space.ticketActivo;
-
-          return (
-            <div
-              key={space.id}
-              className={`relative group p-4 rounded-lg border-2 transition-all ${getStatusColor(
-                space.estado
-              )}`}
-            >
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                <button
-                  onClick={() => handleOpenDialog(space)} 
-                  className="bg-black/70 text-white p-1 rounded"
-                  >
-                  <Settings className="w-4 h-4" />
-                </button>
-                  {space.estado === "LIBRE" && (
-                <button
-                  onClick={() => handleDeleteEspacio(space.id)}
-                  className="bg-red-600 text-white p-1 rounded"
-                >✕
-                </button>
-              )}
-          </div>
-
-              <div className="text-center">
-                <p className="text-2xl font-bold mb-1">
-                  {space.numero}
-                </p>
-
-                <Badge variant={getStatusBadgeVariant(space.estado)}>
-                  {space.estado}
-                </Badge>
-
-                {ticket && (
-                  <div className="mt-2 pt-2 border-t border-current/20">
-                    <p className="text-xs font-medium truncate">
-                      {ticket.placa}
-                    </p>
-                    <p className="text-xs opacity-75">
-                      {ticket.horaEntrada}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {lista.map((space) => (
+          <EspacioCard
+            key={space.id}
+            numero={space.numero || space.codigoEspacio}
+            estado={space.estado}
+            tipoVehiculo={space.tipoVehiculo}
+            ticketActivo={space.ticketActivo}
+            onEdit={() => handleOpenDialog(space)}
+            onDelete={() => handleDeleteEspacio(space.id)}
+            canDelete={space.estado === "LIBRE"}
+          />
+        ))}
       </div>
     );
   };
@@ -209,9 +145,6 @@ const handleDeleteEspacio = async (id) => {
           <h1 className="text-3xl font-bold mb-2">
             Gestión de Espacios
           </h1>
-          <p className="text-muted-foreground">
-            Vista en tiempo real del estado del parqueo
-          </p>
         </div>
 
         <Button onClick={() => setOpenAddDialog(true)}>
@@ -226,59 +159,60 @@ const handleDeleteEspacio = async (id) => {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-4">
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm">Libres</p>
-          <p className="text-2xl font-bold text-green-700">
-            {stats.libre}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <Card>
+          <CardContent className="pt-6">
+            <Tabs defaultValue="carros" className="space-y-4">
+              <TabsList className="mx-auto grid w-full max-w-md grid-cols-2 border bg-white p-1">
+                <TabsTrigger
+                  value="carros"
+                  className="border border-transparent bg-white text-slate-600 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                >
+                  <Car className="w-4 h-4 mr-2" />
+                  Carros ({espaciosCarros.length})
+                </TabsTrigger>
 
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm">Ocupados</p>
-          <p className="text-2xl font-bold text-red-700">
-            {stats.ocupado}
-          </p>
-        </div>
+                <TabsTrigger
+                  value="motos"
+                  className="border border-transparent bg-white text-slate-600 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
+                >
+                  <Bike className="w-4 h-4 mr-2" />
+                  Motos ({espaciosMotos.length})
+                </TabsTrigger>
+              </TabsList>
 
-        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm">Reservado</p>
-          <p className="text-2xl font-bold text-yellow-700">
-            {stats.reservado}
-          </p>
-        </div>
+              <TabsContent value="carros">
+                {renderEspacios(espaciosCarros)}
+              </TabsContent>
 
+              <TabsContent value="motos">
+                {renderEspacios(espaciosMotos)}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <Card className="h-fit">
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="rounded-lg border bg-card p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Libres</p>
+                <p className="text-2xl font-bold text-emerald-700">{stats.libre}</p>
+              </div>
+
+              <div className="rounded-lg border bg-card p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ocupados</p>
+                <p className="text-2xl font-bold text-rose-700">{stats.ocupado}</p>
+              </div>
+
+              <div className="rounded-lg border bg-card p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reservados</p>
+                <p className="text-2xl font-bold text-amber-700">{stats.reservado}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Espacios del Parqueo</CardTitle>
-        </CardHeader>
-
-        <CardContent>
-          <Tabs defaultValue="carros" className="space-y-4">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="carros">
-                <Car className="w-4 h-4 mr-2" />
-                Carros ({espaciosCarros.length})
-              </TabsTrigger>
-
-              <TabsTrigger value="motos">
-                <Bike className="w-4 h-4 mr-2" />
-                Motos ({espaciosMotos.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="carros">
-              {renderEspacios(espaciosCarros)}
-            </TabsContent>
-
-            <TabsContent value="motos">
-              {renderEspacios(espaciosMotos)}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
 
       {openDialog && selectedEspacio && (
         <EspacioEstadoDialog
