@@ -24,7 +24,7 @@ const menuItems = [
   { path: "/espacios", label: "Espacios", icon: Grid3x3, roles: ["admin", "operador"] },
   { path: "/reservas", label: "Reservas", icon: Calendar, roles: ["admin", "operador"] },
   { path: "/historial", label: "Historial", icon: History, roles: ["admin", "operador"] },
-  { path: "/tarifas", label: "Configuracion", icon: Settings, roles: ["admin"] },
+  { path: "/configuracion", label: "Configuracion", icon: Settings, roles: ["admin"] },
   { path: "/usuarios", label: "Usuarios", icon: Users, roles: ["admin"] },
 ];
 

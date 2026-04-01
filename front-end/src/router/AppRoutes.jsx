@@ -7,7 +7,7 @@ import { HistorialPage } from "../pages/HistorialPage";
 import  {LoginPage}  from "../pages/LoginPage.jsx";
 import { ReservasPage } from "../pages/ReservasPage";
 import { SalidaPage } from "../pages/SalidaPage";
-import { TarifasPage } from "../pages/TarifasPage";
+import { ConfiguracionPage } from "../pages/ConfiguracionPage";
 import { UsuariosPage } from "../pages/UsuariosPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -25,7 +25,8 @@ export const AppRoutes = () => {
         <Route path="/espacios" element={<EspaciosPage />} />
         <Route path="/reservas" element={<ReservasPage />} />
         <Route path="/historial" element={<HistorialPage />} />
-        <Route path="/tarifas" element={<TarifasPage />} />
+        <Route path="/configuracion" element={<ConfiguracionPage />} />
+        <Route path="/tarifas" element={<Navigate to="/configuracion" replace />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
       </Route>
     </Route>
