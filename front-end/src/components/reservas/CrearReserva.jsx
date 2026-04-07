@@ -16,14 +16,19 @@ export default function CrearReserva({ onSuccess }) {
   const [placa, setPlaca] = useState("");
   const [tipoVehiculo, setTipoVehiculo] = useState("CARRO");
   const [fechaReserva, setFechaReserva] = useState("");
-  const [horaReserva, setHoraReserva] = useState("");
+  const [documento, setDocumento] = useState("");
+
+  const [espacioId, setEspacioId] = useState("");
+  const [espacios, setEspacios] = useState([]);
 
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("CEDULA");
-  const [documento, setDocumento] = useState("");
-
-  const [espacios, setEspacios] = useState([]);
+  
+  const [horaInicio, setHoraInicio] = useState("");
+  const [horaFin, setHoraFin] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -43,50 +48,64 @@ export default function CrearReserva({ onSuccess }) {
     fetchEspacios();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    try {
+  try {
+    setLoading(true);
+    setError("");
+    setSuccess("");
 
-      setLoading(true);
-      setError("");
-      setSuccess("");
+    const fechaHoraInicio = `${fechaReserva}T${horaInicio}:00`;
+    const fechaHoraFin = `${fechaReserva}T${horaFin}:00`;
 
-      await crearReserva({
-        placa,
-        tipoVehiculo,
-        fechaReserva,
-        horaReserva,
-        clienteNombre: nombre,
-        clienteApellido: apellido,
-        clienteDocumento: documento,
-        tipoDocumento
-      });
+    const data = {
+      espacioId: Number(espacioId),
+      placa,
+      tipoVehiculo,
+      horaInicio: fechaHoraInicio,
+      horaFin: fechaHoraFin,
+      clienteNombreCompleto: `${nombre} ${apellido}`,
+      clienteTelefono: telefono,
+      clienteEmail: email
+    };
 
-      setSuccess("Reserva creada correctamente");
+    console.log("Creando reserva:", data);
 
-      setPlaca("");
-      setFechaReserva("");
-      setHoraReserva("");
-      setNombre("");
-      setApellido("");
-      setDocumento("");
+    await crearReserva(data);
 
-      fetchEspacios();
+    setSuccess("Reserva creada correctamente");
 
-      if (onSuccess) {
-        onSuccess();
-      }
+    // Limpiar formulario
+    setPlaca("");
+    setFechaReserva("");
+    setHoraInicio("");
+    setHoraFin("");
+    setNombre("");
+    setApellido("");
+    setDocumento("");
+    setEmail("");
+    setTelefono("");
+    setEspacioId("");
 
-    } catch (err) {
-      console.error(err);
-      setError("Error creando reserva");
-    } finally {
-      setLoading(false);
+    fetchEspacios();
+
+    if (onSuccess) {
+      onSuccess();
     }
 
-  };
+  } catch (err) {
+    console.error("Error creando reserva:", err?.response?.data || err);
 
+    setError(
+      err?.response?.data?.message ||
+      "Error creando reserva"
+    );
+
+  } finally {
+    setLoading(false);
+  }
+};
   const carrosDisponibles = espacios.filter(
   e => e.tipoVehiculo === "CARRO" && e.estado === "LIBRE"
 ).length;
@@ -171,6 +190,26 @@ const motosDisponibles = espacios.filter(
             </div>
 
             <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <Label>Teléfono</Label>
+              <Input
+                type="tel"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
               <Label>Tipo Documento</Label>
 
               <div className="flex gap-6 mt-2">
@@ -209,17 +248,7 @@ const motosDisponibles = espacios.filter(
                 required
               />
             </div>
-
-            <div>
-              <Label>Placa del Vehículo</Label>
-              <Input
-                value={placa}
-                onChange={(e) =>
-                  setPlaca(e.target.value.toUpperCase())
-                }
-                required
-              />
-            </div>
+            
 
             <div>
               <Label>Tipo de Vehículo</Label>
@@ -253,7 +282,41 @@ const motosDisponibles = espacios.filter(
               </div>
 
             </div>
+            <div>
+              <Label>Seleccionar Parqueo</Label>
 
+              <select
+                className="w-full border rounded-md p-2"
+                value={espacioId}
+                onChange={(e) => setEspacioId(e.target.value)}
+                required
+              >
+              <option value="">Seleccione un parqueo</option>
+
+              {espacios
+                  .filter(
+                  (espacio) =>
+                  espacio.estado === "LIBRE" &&
+                  espacio.tipoVehiculo === tipoVehiculo
+                  )
+                .map((espacio) => (
+              <option key={espacio.id} value={espacio.id}>
+                {espacio.codigoEspacio} - {espacio.tipoVehiculo}
+              </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>Placa del Vehículo</Label>
+              <Input
+                value={placa}
+                onChange={(e) =>
+                  setPlaca(e.target.value.toUpperCase())
+                }
+                required
+              />
+            </div>
             <div>
               <Label>Fecha Reserva</Label>
               <Input
@@ -267,18 +330,24 @@ const motosDisponibles = espacios.filter(
             </div>
 
             <div>
-              <Label>Hora Reserva</Label>
-
+              <Label>Hora Inicio</Label>
               <Input
-                type="time"
-                value={horaReserva}
-                onChange={(e) =>
-                  setHoraReserva(e.target.value)
-                }
-                required
+              type="time"
+              value={horaInicio}
+              onChange={(e) => setHoraInicio(e.target.value)}
+              required
               />
             </div>
 
+            <div>
+              <Label>Hora Fin</Label>
+              <Input
+              type="time"
+              value={horaFin}
+              onChange={(e) => setHoraFin(e.target.value)}
+              required
+              />
+            </div>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>
