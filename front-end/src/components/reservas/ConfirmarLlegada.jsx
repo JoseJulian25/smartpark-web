@@ -136,12 +136,12 @@ export default function ConfirmarLlegada({ onSuccess }) {
           </div>
 
           <div>
-            <strong>Fecha:</strong> {reserva.fechaReserva}
+            <strong>Fecha:</strong> {new Date(reserva.horaInicio).toLocaleDateString()}
           </div>
 
           <div>
-            <strong>Hora:</strong> {reserva.horaReserva}
-          </div>
+                <strong>Hora:</strong> {new Date(reserva.horaInicio).toLocaleTimeString()}
+              </div>
 
           <Button
             className="w-full"

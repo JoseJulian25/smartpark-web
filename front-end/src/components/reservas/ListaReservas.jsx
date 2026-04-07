@@ -69,11 +69,11 @@ export default function ListaReservas({
               </td>
 
               <td className="p-2">
-                {reserva.fechaReserva}
+                  {new Date(reserva.horaInicio).toLocaleDateString()}
               </td>
 
               <td className="p-2">
-                {reserva.horaReserva}
+                  {new Date(reserva.horaInicio).toLocaleTimeString()}
               </td>
 
               <td className="p-2">
