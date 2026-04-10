@@ -31,50 +31,68 @@ export default function ListaReservas() {
 
   const [reservas, setReservas] = useState([]);
   const [filtro, setFiltro] = useState("pendientes");
+  const [loading, setLoading] = useState(false);
 
- const fetchReservas = async () => {
-  try {
+  const fetchReservas = async () => {
+    try {
 
-    let data = [];
+      setLoading(true);
 
-    if (filtro === "pendientes") {
-      data = await getReservasPendientes();
+      let data = [];
+
+      if (filtro === "pendientes") {
+        data = await getReservasPendientes();
+      }
+
+      if (filtro === "activas") {
+        data = await getReservasActivas();
+      }
+
+      if (filtro === "historial") {
+        data = await getHistorialReservas();
+      }
+
+      console.log("Reservas:", data);
+
+      setReservas(Array.isArray(data) ? data : []);
+
+    } catch (error) {
+      console.error("Error cargando reservas:", error);
+      setReservas([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (filtro === "activas") {
-      data = await getReservasActivas();
-    }
-
-    if (filtro === "historial") {
-      data = await getHistorialReservas();
-    }
-
-    console.log("Reservas:", data);
-
-    setReservas(data.data || data || []);
-
-  } catch (error) {
-    console.error(error);
-  }
-};
+  };
 
   useEffect(() => {
     fetchReservas();
   }, [filtro]);
 
   const handleConfirmar = async (id) => {
-    await confirmarLlegada(id);
-    fetchReservas();
+    try {
+      await confirmarLlegada(id);
+      fetchReservas();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleSalida = async (codigo) => {
-    await registrarSalida(codigo);
-    fetchReservas();
+    try {
+      await registrarSalida(codigo);
+      fetchReservas();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const handleCancelar = async (id) => {
-    await cancelarReserva(id);
-    fetchReservas();
+    try {
+      await cancelarReserva(id);
+      fetchReservas();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -134,6 +152,22 @@ export default function ListaReservas() {
 
           <TableBody>
 
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  Cargando...
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!loading && reservas.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  No hay reservas
+                </TableCell>
+              </TableRow>
+            )}
+
             {reservas.map((reserva) => (
 
               <TableRow key={reserva.id}>
@@ -151,7 +185,7 @@ export default function ListaReservas() {
                 </TableCell>
 
                 <TableCell>
-                  {reserva.espacioId}
+                  {reserva.codigoEspacio || reserva.espacioId}
                 </TableCell>
 
                 <TableCell>
@@ -208,5 +242,4 @@ export default function ListaReservas() {
     </Card>
 
   );
-
 }

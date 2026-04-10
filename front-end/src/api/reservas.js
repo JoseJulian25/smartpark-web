@@ -11,18 +11,22 @@ export const crearReserva = async (payload) => {
 };
 
 export const buscarReservaPorCodigo = async (codigo) => {
-  const { data } = await client.get(`/reservas/${codigo}`);
+  const { data } = await client.get(`/reservas/codigo/${codigo}`);
   return data;
 };
 
 export const confirmarLlegada = async (id) => {
-  console.log("Confirmando ID:", id)
-  const { data } = await client.patch(`/reservas/${id}/confirmar-llegada`)
-  return data
-}
+  const { data } = await client.patch(`/reservas/${id}/estado`, {
+    estado: "ACTIVA"
+  });
+  return data;
+};
+
 
 export const registrarSalida = async (codigo) => {
-  const { data } = await client.post(`/reservas/${codigo}/salida`);
+  const { data } = await client.patch(`/reservas/codigo/${codigo}/estado`, {
+    estado: "FINALIZADA"
+  });
   return data;
 };
 
@@ -42,6 +46,8 @@ export const getHistorialReservas = async () => {
 };
 
 export const cancelarReserva = async (id) => {
-  const { data } = await client.delete(`/reservas/${id}`);
+  const { data } = await client.patch(`/reservas/${id}/estado`, {
+    estado: "CANCELADA"
+  });
   return data;
 };
