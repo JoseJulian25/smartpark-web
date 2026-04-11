@@ -1,13 +1,13 @@
 import { Building2, DollarSign } from "lucide-react";
 
 import { Card, CardContent } from "../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { GeneralSection } from "../components/configuracion/GeneralSection";
 import { TarifasSection } from "../components/configuracion/TarifasSection";
 import { useConfiguracionPage } from "../hooks/configuracion/useConfiguracionPage";
 
-export const ConfiguracionPage = () => {
+export const ConfiguracionPage = ({ initialTab = "general" }) => {
   const { loading, empresa, tarifas } = useConfiguracionPage();
+  const activeTab = initialTab === "tarifas" ? "tarifas" : "general";
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -25,26 +25,8 @@ export const ConfiguracionPage = () => {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2 border bg-white p-1">
-            <TabsTrigger
-              value="general"
-              className="border border-transparent bg-white text-slate-600 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <Building2 className="w-4 h-4 mr-2" />
-              General
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="tarifas"
-              className="border border-transparent bg-white text-slate-600 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Tarifas
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="general" className="space-y-6">
+        <div className="space-y-6">
+          {activeTab === "general" && (
             <GeneralSection
               empresaForm={empresa.empresaForm}
               isEditingEmpresa={empresa.isEditingEmpresa}
@@ -54,9 +36,9 @@ export const ConfiguracionPage = () => {
               onChange={empresa.handleEmpresaChange}
               onSubmit={empresa.handleGuardarEmpresa}
             />
-          </TabsContent>
+          )}
 
-          <TabsContent value="tarifas" className="space-y-6">
+          {activeTab === "tarifas" && (
             <TarifasSection
               tarifasForm={tarifas.tarifasForm}
               isEditingTarifas={tarifas.isEditingTarifas}
@@ -74,8 +56,8 @@ export const ConfiguracionPage = () => {
               formatDateTime={tarifas.formatDateTime}
               calcularEjemplo={tarifas.calcularEjemplo}
             />
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       )}
     </div>
   );
