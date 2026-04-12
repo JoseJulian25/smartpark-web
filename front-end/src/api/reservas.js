@@ -20,7 +20,9 @@ export const getReservas = async () => {
   return data;
 };
 
-export const cancelarReserva = async (codigoReserva) => {
-  const { data } = await client.patch(`/reservas/${codigoReserva}/cancelar`);
+export const cancelarReserva = async (codigoReserva, motivoCancelacion) => {
+  const { data } = await client.patch(`/reservas/${codigoReserva}/cancelar`, {
+    motivoCancelacion
+  });
   return data;
 };

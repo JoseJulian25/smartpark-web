@@ -26,8 +26,30 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "../ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "../ui/select";
 
 const ESTADOS_HISTORIAL = ["FINALIZADA", "CANCELADA"];
+const MOTIVOS_CANCELACION = [
+  "Cliente no se presentara",
+  "Error en los datos de la reserva",
+  "Espacio no disponible por incidencia",
+  "Solicitud del cliente",
+  "Cambio de horario del cliente"
+];
 
 const getEstadoStyle = (estado) => {
   const estadoNormalizado = (estado || "").toUpperCase();
@@ -82,6 +104,9 @@ export default function ListaReservas({ refresh }) {
   const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(false);
   const [procesandoCodigo, setProcesandoCodigo] = useState("");
+  const [openCancelDialog, setOpenCancelDialog] = useState(false);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [codigoReservaCancelar, setCodigoReservaCancelar] = useState("");
 
   const fetchReservas = async () => {
     try {
@@ -118,11 +143,29 @@ export default function ListaReservas({ refresh }) {
     }
   };
 
-  const handleCancelar = async (codigoReserva) => {
+  const handleOpenCancelar = (codigoReserva) => {
+    setCodigoReservaCancelar(codigoReserva);
+    setMotivoCancelacion("");
+    setOpenCancelDialog(true);
+  };
+
+  const handleCancelar = async () => {
+    if (!codigoReservaCancelar) {
+      return;
+    }
+
+    if (!motivoCancelacion.trim()) {
+      toast.error("Debe indicar un motivo para cancelar la reserva");
+      return;
+    }
+
     try {
-      setProcesandoCodigo(codigoReserva);
-      await cancelarReserva(codigoReserva);
+      setProcesandoCodigo(codigoReservaCancelar);
+      await cancelarReserva(codigoReservaCancelar, motivoCancelacion.trim());
       toast.success("Reserva cancelada correctamente");
+      setOpenCancelDialog(false);
+      setCodigoReservaCancelar("");
+      setMotivoCancelacion("");
       await fetchReservas();
     } catch (error) {
       console.error(error);
@@ -294,6 +337,9 @@ export default function ListaReservas({ refresh }) {
                   <div className="leading-tight">
                     <div>{formatDateTime(reserva.horaInicio)}</div>
                     <div className="text-muted-foreground">{formatDateTime(reserva.horaFin)}</div>
+                    {(reserva.estado || "").toUpperCase() === "CANCELADA" && reserva.motivoCancelacion && (
+                      <div className="text-rose-700 mt-1">Motivo: {reserva.motivoCancelacion}</div>
+                    )}
                   </div>
                 </TableCell>
 
@@ -320,7 +366,7 @@ export default function ListaReservas({ refresh }) {
                       size="sm"
                       variant="destructive"
                       disabled={procesandoCodigo === reserva.codigoReserva}
-                      onClick={() => handleCancelar(reserva.codigoReserva)}
+                      onClick={() => handleOpenCancelar(reserva.codigoReserva)}
                     >
                       {procesandoCodigo === reserva.codigoReserva ? "Procesando..." : "Cancelar"}
                     </Button>
@@ -337,6 +383,55 @@ export default function ListaReservas({ refresh }) {
         </Table>
 
       </CardContent>
+
+      <Dialog open={openCancelDialog} onOpenChange={setOpenCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Reserva</DialogTitle>
+            <DialogDescription>
+              Seleccione el motivo de cancelacion para continuar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Motivo</label>
+            <Select value={motivoCancelacion} onValueChange={setMotivoCancelacion}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccione un motivo" />
+              </SelectTrigger>
+              <SelectContent>
+                {MOTIVOS_CANCELACION.map((motivo) => (
+                  <SelectItem key={motivo} value={motivo}>
+                    {motivo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOpenCancelDialog(false);
+                setCodigoReservaCancelar("");
+                setMotivoCancelacion("");
+              }}
+            >
+              Cerrar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!motivoCancelacion || procesandoCodigo === codigoReservaCancelar}
+              onClick={handleCancelar}
+            >
+              {procesandoCodigo === codigoReservaCancelar ? "Procesando..." : "Confirmar Cancelacion"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </Card>
 
