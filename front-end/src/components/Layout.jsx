@@ -1,13 +1,17 @@
 import {
+  Activity,
   Building2,
   Calendar,
   ChevronDown,
   DollarSign,
+  FileSearch,
   History,
   LayoutDashboard,
   LogIn,
   LogOut,
   Menu,
+  PieChart,
+  Presentation,
   Settings,
   Users,
 } from "lucide-react";
@@ -22,6 +26,18 @@ const menuItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "operador"] },
   { path: "/entrada", label: "Entradas", icon: LogIn, roles: ["admin", "operador"] },
   { path: "/reservas", label: "Reservas", icon: Calendar, roles: ["admin", "operador"] },
+  {
+    path: "/reportes",
+    label: "Reportes y Consultas",
+    icon: Presentation,
+    roles: ["admin", "operador"],
+    children: [
+      { path: "/reportes/operativos", label: "Operativos", icon: Activity },
+      { path: "/reportes/reservas", label: "Reservas", icon: Calendar },
+      { path: "/reportes/ocupacion", label: "Ocupacion", icon: PieChart },
+      { path: "/reportes/consultas", label: "Consultas", icon: FileSearch }
+    ]
+  },
   { path: "/historial", label: "Historial", icon: History, roles: ["admin", "operador"] },
   {
     path: "/configuracion",
@@ -40,6 +56,7 @@ export const Layout = () => {
   const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(true);
+  const [reportesOpen, setReportesOpen] = useState(true);
   const location = useLocation();
 
   const userRole = (user?.rol || user?.role || "").toLowerCase();
@@ -68,21 +85,27 @@ export const Layout = () => {
             : false;
 
           if (hasChildren) {
+            const isReportesSection = item.path === "/reportes";
+            const isOpen = isReportesSection ? reportesOpen : configOpen;
+            const toggleSection = isReportesSection
+              ? () => setReportesOpen((prev) => !prev)
+              : () => setConfigOpen((prev) => !prev);
+
             return (
               <div key={item.path} className="space-y-1">
                 <button
                   type="button"
-                  onClick={() => setConfigOpen((prev) => !prev)}
+                  onClick={toggleSection}
                   className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
                     isConfigSectionActive ? "bg-primary text-primary-foreground" : "text-gray-700 hover:bg-slate-200/70"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                   <span className="flex-1 text-left">{item.label}</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${configOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {configOpen && (
+                {isOpen && (
                   <div className="ml-4 space-y-1 border-l border-slate-200 pl-3">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;

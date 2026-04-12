@@ -7,6 +7,10 @@ import  {LoginPage}  from "../pages/LoginPage.jsx";
 import { ReservasPage } from "../pages/ReservasPage";
 import { ConfiguracionPage } from "../pages/ConfiguracionPage";
 import { UsuariosPage } from "../pages/UsuariosPage";
+import { ReportesOperativosPage } from "../pages/reportes/ReportesOperativosPage";
+import { ReportesReservasPage } from "../pages/reportes/ReportesReservasPage";
+import { ReportesOcupacionPage } from "../pages/reportes/ReportesOcupacionPage";
+import { ReportesConsultasPage } from "../pages/reportes/ReportesConsultasPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 export const AppRoutes = () => {
@@ -28,6 +32,11 @@ export const AppRoutes = () => {
         <Route path="/configuracion/tarifas" element={<ConfiguracionPage initialTab="tarifas" />} />
         <Route path="/tarifas" element={<Navigate to="/configuracion/tarifas" replace />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
+        <Route path="/reportes" element={<Navigate to="/reportes/operativos" replace />} />
+        <Route path="/reportes/operativos" element={<ReportesOperativosPage />} />
+        <Route path="/reportes/reservas" element={<ReportesReservasPage />} />
+        <Route path="/reportes/ocupacion" element={<ReportesOcupacionPage />} />
+        <Route path="/reportes/consultas" element={<ReportesConsultasPage />} />
       </Route>
     </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
