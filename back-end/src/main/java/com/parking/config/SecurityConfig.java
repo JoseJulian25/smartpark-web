@@ -78,6 +78,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/reportes/ocupacion/**").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
                 .requestMatchers(HttpMethod.GET, "/reportes/consultas").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
                 .requestMatchers(HttpMethod.GET, "/reportes/consultas/**").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
+                .requestMatchers(HttpMethod.GET, "/reportes/export/**").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
                 .requestMatchers(HttpMethod.GET, "/reportes/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_admin")
                 .anyRequest().authenticated()
             )

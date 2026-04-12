@@ -3,9 +3,13 @@ package com.parking.controller;
 import java.util.Map;
 import java.time.LocalDateTime;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -148,13 +152,48 @@ public class ReportesController {
 
     @GetMapping("/consultas/ticket/{codigoTicket}")
     public ResponseEntity<ReporteTablaResponseDTO> consultaPorCodigoTicket(
-            @org.springframework.web.bind.annotation.PathVariable String codigoTicket) {
+            @PathVariable String codigoTicket) {
         return ResponseEntity.ok(reportesService.obtenerConsultaPorCodigoTicket(codigoTicket));
     }
 
     @GetMapping("/consultas/reserva/{codigoReserva}")
     public ResponseEntity<ReporteTablaResponseDTO> consultaPorCodigoReserva(
-            @org.springframework.web.bind.annotation.PathVariable String codigoReserva) {
+            @PathVariable String codigoReserva) {
         return ResponseEntity.ok(reportesService.obtenerConsultaPorCodigoReserva(codigoReserva));
+    }
+
+    @GetMapping("/export/csv/tickets")
+    public ResponseEntity<ByteArrayResource> exportarTicketsCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
+        String fileName = reportesService.construirNombreArchivoCsv("tickets");
+        byte[] data = reportesService.exportarTicketsEnRangoCsv(fechaDesde, fechaHasta);
+        return construirRespuestaCsv(fileName, data);
+    }
+
+    @GetMapping("/export/csv/reservas")
+    public ResponseEntity<ByteArrayResource> exportarReservasCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
+        String fileName = reportesService.construirNombreArchivoCsv("reservas");
+        byte[] data = reportesService.exportarReservasEnRangoCsv(fechaDesde, fechaHasta);
+        return construirRespuestaCsv(fileName, data);
+    }
+
+    @GetMapping("/export/csv/cancelaciones")
+    public ResponseEntity<ByteArrayResource> exportarCancelacionesCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
+        String fileName = reportesService.construirNombreArchivoCsv("cancelaciones_reservas");
+        byte[] data = reportesService.exportarCancelacionesConMotivoCsv(fechaDesde, fechaHasta);
+        return construirRespuestaCsv(fileName, data);
+    }
+
+    private ResponseEntity<ByteArrayResource> construirRespuestaCsv(String fileName, byte[] data) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentLength(data.length)
+                .body(new ByteArrayResource(data));
     }
 }

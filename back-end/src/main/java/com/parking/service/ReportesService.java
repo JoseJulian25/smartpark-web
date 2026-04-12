@@ -1,6 +1,9 @@
 package com.parking.service;
 
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,6 +17,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +48,7 @@ public class ReportesService {
     private static final String ESTADO_RESERVA_CANCELADA = "CANCELADA";
     private static final Set<String> ESTADOS_OCUPADOS_ESPACIO = Set.of("OCUPADO", "RESERVADO");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter FILE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private final TicketRepository ticketRepository;
     private final ReservaRepository reservaRepository;
@@ -587,6 +593,100 @@ public class ReportesService {
         1L);
     }
 
+        @Transactional(readOnly = true)
+        public byte[] exportarTicketsEnRangoCsv(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
+        RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
+        List<Ticket> tickets = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
+            rango.fechaDesde(),
+            rango.fechaHasta());
+
+        String[] headers = {
+            "codigoTicket",
+            "placa",
+            "tipoVehiculo",
+            "codigoEspacio",
+            "estado",
+            "horaEntrada",
+            "horaSalida",
+            "montoTotal"
+        };
+
+        return generarCsv(headers, tickets.stream()
+            .map(ticket -> List.of(
+                valorCsv(ticket.getCodigoTicket()),
+                valorCsv(ticket.getPlaca()),
+                ticket.getTipoVehiculo() == null ? "-" : valorCsv(ticket.getTipoVehiculo().getNombre()),
+                ticket.getEspacio() == null ? "-" : valorCsv(ticket.getEspacio().getCodigoEspacio()),
+                ticket.getEstado() == null ? "-" : valorCsv(ticket.getEstado().getNombre()),
+                formatDateTime(ticket.getHoraEntrada()),
+                formatDateTime(ticket.getHoraSalida()),
+                ticket.getMontoTotal() == null ? "-" : ticket.getMontoTotal().toPlainString()))
+            .toList());
+        }
+
+        @Transactional(readOnly = true)
+        public byte[] exportarReservasEnRangoCsv(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
+        RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
+        List<Reserva> reservas = obtenerReservasCreadasEnRango(rango);
+
+        String[] headers = {
+            "codigoReserva",
+            "placa",
+            "cliente",
+            "tipoVehiculo",
+            "codigoEspacio",
+            "estado",
+            "horaInicio",
+            "horaFin",
+            "fechaCreacion"
+        };
+
+        return generarCsv(headers, reservas.stream()
+            .map(reserva -> List.of(
+                valorCsv(reserva.getCodigoReserva()),
+                valorCsv(reserva.getPlaca()),
+                valorCsv(reserva.getClienteNombreCompleto()),
+                reserva.getTipoVehiculo() == null ? "-" : valorCsv(reserva.getTipoVehiculo().getNombre()),
+                reserva.getEspacio() == null ? "-" : valorCsv(reserva.getEspacio().getCodigoEspacio()),
+                reserva.getEstado() == null ? "-" : valorCsv(reserva.getEstado().getNombre()),
+                formatDateTime(reserva.getHoraInicio()),
+                formatDateTime(reserva.getHoraFin()),
+                formatDateTime(reserva.getFechaCreacion())))
+            .toList());
+        }
+
+        @Transactional(readOnly = true)
+        public byte[] exportarCancelacionesConMotivoCsv(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
+        RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
+        List<Reserva> canceladas = obtenerReservasCanceladasEnRango(rango);
+
+        String[] headers = {
+            "codigoReserva",
+            "placa",
+            "cliente",
+            "codigoEspacio",
+            "horaInicio",
+            "horaCancelacion",
+            "motivoCancelacion"
+        };
+
+        return generarCsv(headers, canceladas.stream()
+            .map(reserva -> List.of(
+                valorCsv(reserva.getCodigoReserva()),
+                valorCsv(reserva.getPlaca()),
+                valorCsv(reserva.getClienteNombreCompleto()),
+                reserva.getEspacio() == null ? "-" : valorCsv(reserva.getEspacio().getCodigoEspacio()),
+                formatDateTime(reserva.getHoraInicio()),
+                formatDateTime(reserva.getHoraFin()),
+                normalizarMotivo(reserva.getMotivoCancelacion())))
+            .toList());
+        }
+
+        public String construirNombreArchivoCsv(String prefijo) {
+        String timestamp = LocalDateTime.now().format(FILE_TIMESTAMP_FORMATTER);
+        return prefijo + "_" + timestamp + ".csv";
+        }
+
         private ReporteSerieTemporalResponseDTO construirSeriePorHora(
             List<Ticket> tickets,
             Function<Ticket, LocalDateTime> extractor,
@@ -679,6 +779,23 @@ public class ReportesService {
 
         private String normalizarTexto(String value) {
             return value == null ? "" : value.trim();
+        }
+
+        private byte[] generarCsv(String[] headers, List<List<String>> filas) {
+            try (StringWriter writer = new StringWriter();
+                    CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.builder().setHeader(headers).build())) {
+                for (List<String> fila : filas) {
+                    csvPrinter.printRecord(fila);
+                }
+                csvPrinter.flush();
+                return writer.toString().getBytes(StandardCharsets.UTF_8);
+            } catch (IOException ex) {
+                throw new IllegalStateException("No se pudo generar el archivo CSV", ex);
+            }
+        }
+
+        private String valorCsv(String value) {
+            return value == null || value.isBlank() ? "-" : value.trim();
         }
 
         private record RangoFechas(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
