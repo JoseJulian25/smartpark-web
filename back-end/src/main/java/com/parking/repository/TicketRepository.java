@@ -12,6 +12,10 @@ import com.parking.entity.Ticket;
 @Repository
 public interface TicketRepository extends JpaRepository<Ticket, Long> {
 
+    Optional<Ticket> findByCodigoTicketIgnoreCase(String codigoTicket);
+
+    List<Ticket> findAllByPlacaIgnoreCaseOrderByHoraEntradaDesc(String placa);
+
     Optional<Ticket> findTopByEspacioIdAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(Long espacioId, String estadoNombre);
 
     Optional<Ticket> findTopByPlacaAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(String placa, String estadoNombre);
@@ -19,4 +23,6 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(LocalDateTime desde, LocalDateTime hasta);
 
     List<Ticket> findAllByHoraSalidaGreaterThanEqualAndHoraSalidaLessThan(LocalDateTime desde, LocalDateTime hasta);
+
+    List<Ticket> findAllByEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(String estadoNombre);
 }
