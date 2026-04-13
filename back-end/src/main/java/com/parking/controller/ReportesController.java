@@ -45,33 +45,38 @@ public class ReportesController {
     @GetMapping("/operativos/entradas-por-hora")
     public ResponseEntity<ReporteSerieTemporalResponseDTO> entradasPorHora(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        return ResponseEntity.ok(reportesService.obtenerEntradasPorHora(fechaDesde, fechaHasta));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
+            @RequestParam(required = false) Long usuarioId) {
+        return ResponseEntity.ok(reportesService.obtenerEntradasPorHora(fechaDesde, fechaHasta, usuarioId));
     }
 
     @GetMapping("/operativos/salidas-por-hora")
     public ResponseEntity<ReporteSerieTemporalResponseDTO> salidasPorHora(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        return ResponseEntity.ok(reportesService.obtenerSalidasPorHora(fechaDesde, fechaHasta));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
+            @RequestParam(required = false) Long usuarioId) {
+        return ResponseEntity.ok(reportesService.obtenerSalidasPorHora(fechaDesde, fechaHasta, usuarioId));
     }
 
     @GetMapping("/operativos/flujo-neto-por-hora")
     public ResponseEntity<ReporteSerieTemporalResponseDTO> flujoNetoPorHora(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        return ResponseEntity.ok(reportesService.obtenerFlujoNetoPorHora(fechaDesde, fechaHasta));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
+            @RequestParam(required = false) Long usuarioId) {
+        return ResponseEntity.ok(reportesService.obtenerFlujoNetoPorHora(fechaDesde, fechaHasta, usuarioId));
     }
 
     @GetMapping("/operativos/tickets-activos")
-    public ResponseEntity<ReporteTablaResponseDTO> ticketsActivos() {
-        return ResponseEntity.ok(reportesService.obtenerTicketsActivosActuales());
+    public ResponseEntity<ReporteTablaResponseDTO> ticketsActivos(
+            @RequestParam(required = false) Long usuarioId) {
+        return ResponseEntity.ok(reportesService.obtenerTicketsActivosActuales(usuarioId));
     }
 
     @GetMapping("/operativos/estadias-largas")
     public ResponseEntity<ReporteTablaResponseDTO> estadiasLargas(
-            @RequestParam(required = false) Integer umbralMinutos) {
-        return ResponseEntity.ok(reportesService.obtenerEstadiasLargas(umbralMinutos));
+            @RequestParam(required = false) Integer umbralMinutos,
+            @RequestParam(required = false) Long usuarioId) {
+        return ResponseEntity.ok(reportesService.obtenerEstadiasLargas(umbralMinutos, usuarioId));
     }
 
     @GetMapping("/reservas")
