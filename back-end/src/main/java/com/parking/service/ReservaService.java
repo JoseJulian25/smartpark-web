@@ -5,6 +5,9 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,7 @@ import com.parking.entity.EstadoReserva;
 import com.parking.entity.Reserva;
 import com.parking.entity.TipoVehiculo;
 import com.parking.entity.Usuario;
+import com.parking.exception.EmailDeliveryException;
 import com.parking.repository.EspacioRepository;
 import com.parking.repository.EstadoEspacioRepository;
 import com.parking.repository.EstadoReservaRepository;
@@ -28,6 +32,8 @@ import com.parking.repository.UsuarioRepository;
 
 @Service
 public class ReservaService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReservaService.class);
 
     private static final String ESTADO_PENDIENTE = "PENDIENTE";
     private static final String ESTADO_ACTIVA = "ACTIVA";
@@ -41,19 +47,22 @@ public class ReservaService {
     private final EstadoEspacioRepository estadoEspacioRepository;
     private final TipoVehiculoRepository tipoVehiculoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ReservaEmailService reservaEmailService;
 
     public ReservaService(ReservaRepository reservaRepository,
             EstadoReservaRepository estadoReservaRepository,
             EspacioRepository espacioRepository,
             EstadoEspacioRepository estadoEspacioRepository,
             TipoVehiculoRepository tipoVehiculoRepository,
-            UsuarioRepository usuarioRepository) {
+            UsuarioRepository usuarioRepository,
+            ReservaEmailService reservaEmailService) {
         this.reservaRepository = reservaRepository;
         this.estadoReservaRepository = estadoReservaRepository;
         this.espacioRepository = espacioRepository;
         this.estadoEspacioRepository = estadoEspacioRepository;
         this.tipoVehiculoRepository = tipoVehiculoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.reservaEmailService = reservaEmailService;
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +121,9 @@ public class ReservaService {
         espacio.setEstado(estadoEspacioReservado);
         espacioRepository.save(espacio);
 
+        // Si falla el envio del correo, se lanza excepcion runtime y la transaccion se revierte.
+        reservaEmailService.enviarConfirmacionReserva(creada);
+
         return toDto(creada);
     }
 
@@ -156,6 +168,12 @@ public class ReservaService {
         Reserva actualizada = reservaRepository.save(reserva);
 
         actualizarEstadoEspacio(actualizada, ESTADO_ESPACIO_LIBRE);
+
+        try {
+            reservaEmailService.enviarCancelacionReserva(actualizada);
+        } catch (EmailDeliveryException ex) {
+            log.warn("No se pudo enviar correo de cancelacion para la reserva {}", actualizada.getCodigoReserva(), ex);
+        }
 
         return toDto(actualizada);
     }

@@ -60,6 +60,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "Conflicto", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleEmailDelivery(EmailDeliveryException ex,
+                                                             HttpServletRequest request) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "Servicio de correo no disponible", "Error enviando el email", request);
+    }
+
     // 500 - Cualquier excepción no controlada
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
