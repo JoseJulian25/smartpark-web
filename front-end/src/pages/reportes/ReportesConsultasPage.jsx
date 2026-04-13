@@ -3,9 +3,10 @@ import toast from "react-hot-toast";
 import { Search, Loader2 } from "lucide-react";
 
 import {
-  consultarPorPlaca,
+  getConsultasPorRangoMontos,
+  getHistorialConsolidadoCliente,
+  getTrazabilidadTicket,
   consultarPorReserva,
-  consultarPorTicket,
   getReportesErrorMessage,
 } from "../../api/reportes";
 import { getUsuarios } from "../../api/usuarios";
@@ -38,6 +39,19 @@ const startOfTodayInput = () => {
 };
 
 const nowInput = () => toLocalDateTimeInput(new Date());
+
+const toApiLocalDateTime = (value) => {
+  if (!value) return undefined;
+  return value.length === 16 ? `${value}:00` : value;
+};
+
+const HISTORIAL_PAGE_SIZE = 20;
+const MONTOS_PAGE_SIZE = 20;
+
+const getTotalRegistros = (response) => {
+  const total = Number(response?.totalRegistros ?? 0);
+  return Number.isFinite(total) ? total : 0;
+};
 
 const renderTablaDinamica = (titulo, columnas = [], filas = []) => {
   return (
@@ -94,14 +108,21 @@ export const ReportesConsultasPage = () => {
   const [placa, setPlaca] = useState("");
   const [codigoTicket, setCodigoTicket] = useState("");
   const [codigoReserva, setCodigoReserva] = useState("");
+  const [montoDesde, setMontoDesde] = useState("");
+  const [montoHasta, setMontoHasta] = useState("");
 
-  const [loadingPlaca, setLoadingPlaca] = useState(false);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
   const [loadingTicket, setLoadingTicket] = useState(false);
   const [loadingReserva, setLoadingReserva] = useState(false);
+  const [loadingMontos, setLoadingMontos] = useState(false);
 
-  const [resultadoPlaca, setResultadoPlaca] = useState(null);
+  const [resultadoHistorial, setResultadoHistorial] = useState(null);
   const [resultadoTicket, setResultadoTicket] = useState(null);
   const [resultadoReserva, setResultadoReserva] = useState(null);
+  const [resultadoMontos, setResultadoMontos] = useState(null);
+
+  const [historialPage, setHistorialPage] = useState(0);
+  const [montosPage, setMontosPage] = useState(0);
 
   useEffect(() => {
     const cargarUsuarios = async () => {
@@ -117,7 +138,7 @@ export const ReportesConsultasPage = () => {
     cargarUsuarios();
   }, []);
 
-  const buscarPorPlaca = async () => {
+  const buscarHistorialPorPlaca = async (targetPage = 0) => {
     const value = placa.trim().toUpperCase();
     if (!value) {
       toast.error("Ingresa una placa para consultar");
@@ -125,18 +146,23 @@ export const ReportesConsultasPage = () => {
     }
 
     try {
-      setLoadingPlaca(true);
-      const data = await consultarPorPlaca(value);
-      setResultadoPlaca(data);
+      setLoadingHistorial(true);
+      const data = await getHistorialConsolidadoCliente({
+        placa: value,
+        page: targetPage,
+        size: HISTORIAL_PAGE_SIZE,
+      });
+      setResultadoHistorial(data);
+      setHistorialPage(targetPage);
     } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo consultar por placa");
+      const message = await getReportesErrorMessage(error, "No se pudo consultar historial por placa");
       toast.error(message);
     } finally {
-      setLoadingPlaca(false);
+      setLoadingHistorial(false);
     }
   };
 
-  const buscarPorTicket = async () => {
+  const buscarTrazabilidadTicket = async () => {
     const value = codigoTicket.trim();
     if (!value) {
       toast.error("Ingresa un codigo de ticket");
@@ -145,10 +171,10 @@ export const ReportesConsultasPage = () => {
 
     try {
       setLoadingTicket(true);
-      const data = await consultarPorTicket(value);
+      const data = await getTrazabilidadTicket(value);
       setResultadoTicket(data);
     } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo consultar por ticket");
+      const message = await getReportesErrorMessage(error, "No se pudo consultar trazabilidad de ticket");
       toast.error(message);
     } finally {
       setLoadingTicket(false);
@@ -174,6 +200,55 @@ export const ReportesConsultasPage = () => {
     }
   };
 
+  const buscarPorRangoMontos = async (targetPage = 0) => {
+    try {
+      setLoadingMontos(true);
+      const data = await getConsultasPorRangoMontos({
+        montoDesde: montoDesde.trim() ? Number(montoDesde) : undefined,
+        montoHasta: montoHasta.trim() ? Number(montoHasta) : undefined,
+        fechaDesde: toApiLocalDateTime(fechaDesde),
+        fechaHasta: toApiLocalDateTime(fechaHasta),
+        page: targetPage,
+        size: MONTOS_PAGE_SIZE,
+      });
+      setResultadoMontos(data);
+      setMontosPage(targetPage);
+    } catch (error) {
+      const message = await getReportesErrorMessage(error, "No se pudo consultar por rango de montos");
+      toast.error(message);
+    } finally {
+      setLoadingMontos(false);
+    }
+  };
+
+  const construirTimelineReserva = () => {
+    const row = resultadoReserva?.filas?.[0]?.columnas || null;
+    if (!row) return [];
+
+    const eventos = [];
+    eventos.push({
+      fechaEvento: row.horaInicio || "-",
+      tipoEvento: "RESERVA_INICIO",
+      codigo: row.codigoReserva || "-",
+      estado: row.estado || "-",
+      detalle: `Espacio: ${row.codigoEspacio || "-"} | Tipo: ${row.tipoVehiculo || "-"}`,
+      monto: "-",
+    });
+
+    if (row.horaFin && row.horaFin !== "-") {
+      eventos.push({
+        fechaEvento: row.horaFin,
+        tipoEvento: "RESERVA_FIN",
+        codigo: row.codigoReserva || "-",
+        estado: row.estado || "-",
+        detalle: `Motivo cancelacion: ${row.motivoCancelacion || "-"}`,
+        monto: "-",
+      });
+    }
+
+    return eventos;
+  };
+
   const limpiarFiltrosContexto = () => {
     setFechaDesde(startOfTodayInput());
     setFechaHasta(nowInput());
@@ -183,9 +258,12 @@ export const ReportesConsultasPage = () => {
 
   const actualizarContexto = async () => {
     const tareas = [];
-    if (placa.trim()) tareas.push(buscarPorPlaca());
-    if (codigoTicket.trim()) tareas.push(buscarPorTicket());
+    if (placa.trim()) tareas.push(buscarHistorialPorPlaca(historialPage));
+    if (codigoTicket.trim()) tareas.push(buscarTrazabilidadTicket());
     if (codigoReserva.trim()) tareas.push(buscarPorReserva());
+    if (montoDesde.trim() || montoHasta.trim() || resultadoMontos) {
+      tareas.push(buscarPorRangoMontos(montosPage));
+    }
 
     if (!tareas.length) {
       toast("No hay consultas activas para actualizar");
@@ -195,12 +273,26 @@ export const ReportesConsultasPage = () => {
     await Promise.all(tareas);
   };
 
-  const loading = loadingPlaca || loadingTicket || loadingReserva;
+  const loading = loadingHistorial || loadingTicket || loadingReserva || loadingMontos;
+
+  const historialTotal = getTotalRegistros(resultadoHistorial);
+  const historialCanPrev = historialPage > 0;
+  const historialCanNext = (historialPage + 1) * HISTORIAL_PAGE_SIZE < historialTotal;
+
+  const montosTotal = getTotalRegistros(resultadoMontos);
+  const montosCanPrev = montosPage > 0;
+  const montosCanNext = (montosPage + 1) * MONTOS_PAGE_SIZE < montosTotal;
+
+  const timelineEventos = [
+    ...(resultadoTicket?.filas || []).map((row) => row?.columnas || {}),
+    ...construirTimelineReserva(),
+    ...(resultadoHistorial?.filas || []).slice(0, 20).map((row) => row?.columnas || {}),
+  ];
 
   return (
     <ReportesPageShell
       title="Consultas"
-      subtitle="Busquedas rapidas por placa, ticket y reserva con resultados en tablas compactas."
+      subtitle="Consultas avanzadas por placa, ticket, reserva y montos con timeline compacto de eventos."
     >
       <ReportesContextBar
         fechaDesde={fechaDesde}
@@ -219,60 +311,63 @@ export const ReportesConsultasPage = () => {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="space-y-3 rounded-lg border bg-card p-3">
-          <h2 className="text-sm font-semibold">Consulta por placa</h2>
+          <h2 className="text-sm font-semibold">Historial consolidado por placa</h2>
           <div className="flex gap-2">
             <Input
               value={placa}
               onChange={(event) => setPlaca(event.target.value)}
               placeholder="Ej: A123456"
             />
-            <Button size="sm" onClick={buscarPorPlaca} disabled={loadingPlaca}>
-              {loadingPlaca ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            <Button size="sm" onClick={() => buscarHistorialPorPlaca(0)} disabled={loadingHistorial}>
+              {loadingHistorial ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
 
-          {resultadoPlaca && (
+          {resultadoHistorial && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Placa consultada: <span className="font-semibold text-foreground">{resultadoPlaca.placa || "-"}</span>
+                Total eventos: <span className="font-semibold text-foreground">{historialTotal}</span>
               </p>
               {renderTablaDinamica(
-                resultadoPlaca?.tickets?.titulo || "Tickets",
-                resultadoPlaca?.tickets?.columnas || [],
-                resultadoPlaca?.tickets?.filas || []
+                resultadoHistorial?.titulo || "Historial consolidado",
+                resultadoHistorial?.columnas || [],
+                resultadoHistorial?.filas || []
               )}
-              {renderTablaDinamica(
-                resultadoPlaca?.reservas?.titulo || "Reservas",
-                resultadoPlaca?.reservas?.columnas || [],
-                resultadoPlaca?.reservas?.filas || []
-              )}
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => buscarHistorialPorPlaca(historialPage - 1)}
+                  disabled={!historialCanPrev || loadingHistorial}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => buscarHistorialPorPlaca(historialPage + 1)}
+                  disabled={!historialCanNext || loadingHistorial}
+                >
+                  Siguiente
+                </Button>
+              </div>
             </div>
           )}
         </div>
 
         <div className="space-y-3 rounded-lg border bg-card p-3">
-          <h2 className="text-sm font-semibold">Consulta por ticket</h2>
+          <h2 className="text-sm font-semibold">Trazabilidad ticket y detalle de reserva</h2>
           <div className="flex gap-2">
             <Input
               value={codigoTicket}
               onChange={(event) => setCodigoTicket(event.target.value)}
               placeholder="Ej: T-1712433330000"
             />
-            <Button size="sm" onClick={buscarPorTicket} disabled={loadingTicket}>
+            <Button size="sm" onClick={buscarTrazabilidadTicket} disabled={loadingTicket}>
               {loadingTicket ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
           </div>
 
-          {resultadoTicket &&
-            renderTablaDinamica(
-              resultadoTicket?.titulo || "Detalle de ticket",
-              resultadoTicket?.columnas || [],
-              resultadoTicket?.filas || []
-            )}
-        </div>
-
-        <div className="space-y-3 rounded-lg border bg-card p-3">
-          <h2 className="text-sm font-semibold">Consulta por reserva</h2>
           <div className="flex gap-2">
             <Input
               value={codigoReserva}
@@ -284,6 +379,13 @@ export const ReportesConsultasPage = () => {
             </Button>
           </div>
 
+          {resultadoTicket &&
+            renderTablaDinamica(
+              resultadoTicket?.titulo || "Trazabilidad de ticket",
+              resultadoTicket?.columnas || [],
+              resultadoTicket?.filas || []
+            )}
+
           {resultadoReserva &&
             renderTablaDinamica(
               resultadoReserva?.titulo || "Detalle de reserva",
@@ -291,6 +393,83 @@ export const ReportesConsultasPage = () => {
               resultadoReserva?.filas || []
             )}
         </div>
+
+        <div className="space-y-3 rounded-lg border bg-card p-3">
+          <h2 className="text-sm font-semibold">Consulta por rango de montos y fechas</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              value={montoDesde}
+              onChange={(event) => setMontoDesde(event.target.value)}
+              placeholder="Monto desde"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+            <Input
+              value={montoHasta}
+              onChange={(event) => setMontoHasta(event.target.value)}
+              placeholder="Monto hasta"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => buscarPorRangoMontos(0)} disabled={loadingMontos}>
+              {loadingMontos ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Consultar
+            </Button>
+          </div>
+
+          {resultadoMontos && (
+            <div className="space-y-3">
+              {renderTablaDinamica(
+                resultadoMontos?.titulo || "Pagos por rango",
+                resultadoMontos?.columnas || [],
+                resultadoMontos?.filas || []
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => buscarPorRangoMontos(montosPage - 1)}
+                  disabled={!montosCanPrev || loadingMontos}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => buscarPorRangoMontos(montosPage + 1)}
+                  disabled={!montosCanNext || loadingMontos}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-card p-3 space-y-2">
+        <h2 className="text-sm font-semibold">Timeline compacto de eventos ticket/reserva</h2>
+        {!timelineEventos.length ? (
+          <p className="text-xs text-muted-foreground">Realiza una consulta para visualizar eventos en formato timeline.</p>
+        ) : (
+          <div className="space-y-2">
+            {timelineEventos.slice(0, 24).map((evento, index) => (
+              <div key={`timeline-${index}`} className="rounded-md border px-2 py-2">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <p className="text-xs font-semibold">{evento.tipoEvento || "EVENTO"}</p>
+                  <span className="text-[11px] text-muted-foreground">{evento.fechaEvento || "-"}</span>
+                </div>
+                <p className="text-xs">Codigo: {evento.codigo || "-"} | Estado: {evento.estado || "-"}</p>
+                <p className="text-xs text-muted-foreground">{evento.detalle || "Sin detalle"}</p>
+                <p className="text-xs">Monto: {evento.monto || "-"}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </ReportesPageShell>
   );
