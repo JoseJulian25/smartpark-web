@@ -34,7 +34,6 @@ public class ReservaService {
     private static final String ESTADO_CANCELADA = "CANCELADA";
     private static final String ESTADO_ESPACIO_LIBRE = "LIBRE";
     private static final String ESTADO_ESPACIO_RESERVADO = "RESERVADO";
-    private static final String ESTADO_ESPACIO_OCUPADO = "OCUPADO";
 
     private final ReservaRepository reservaRepository;
     private final EstadoReservaRepository estadoReservaRepository;
@@ -132,7 +131,7 @@ public class ReservaService {
         reserva.setEstado(estadoActiva);
         Reserva actualizada = reservaRepository.save(reserva);
 
-        actualizarEstadoEspacio(actualizada, ESTADO_ESPACIO_OCUPADO);
+        actualizarEstadoEspacio(actualizada, ESTADO_ESPACIO_RESERVADO);
 
         return toDto(actualizada);
     }

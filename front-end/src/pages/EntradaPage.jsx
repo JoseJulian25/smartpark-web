@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Banknote, Bike, Car, CheckCircle2, CreditCard, Info, RefreshCw, Ticket } from "lucide-react";
 import toast from "react-hot-toast";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { registrarEntradaVehiculo } from "../api/entradas";
 import { getEspacios } from "../api/espacios";
@@ -52,6 +53,8 @@ const formatDuration = (minutesValue) => {
 };
 
 export const EntradaPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [espacios, setEspacios] = useState([]);
   const [tipoVehiculo, setTipoVehiculo] = useState("CARRO");
   const [espacioSeleccionadoId, setEspacioSeleccionadoId] = useState(null);
@@ -96,8 +99,9 @@ export const EntradaPage = () => {
       return;
     }
 
-    if ((espacioSeleccionado.estado || "").toUpperCase() !== "LIBRE") {
-      toast.error("Solo se puede registrar entrada en espacios LIBRES");
+    const estadoEspacio = (espacioSeleccionado.estado || "").toUpperCase();
+    if (estadoEspacio !== "LIBRE" && estadoEspacio !== "RESERVADO") {
+      toast.error("Solo se puede registrar entrada en espacios LIBRES o RESERVADOS");
       return;
     }
 
@@ -211,6 +215,29 @@ export const EntradaPage = () => {
     fetchEspacios(true);
   }, []);
 
+  useEffect(() => {
+    const prefill = location.state;
+    if (!prefill?.reservaConfirmada) return;
+
+    if (prefill.placa) {
+      setPlaca(String(prefill.placa).toUpperCase());
+    }
+
+    if (prefill.tipoVehiculo) {
+      setTipoVehiculo(String(prefill.tipoVehiculo).toUpperCase());
+    }
+
+    if (prefill.espacioId) {
+      setEspacioSeleccionadoId(Number(prefill.espacioId));
+    }
+
+    toast.success("Datos de reserva cargados. Solo confirme para emitir el ticket.", {
+      id: "reserva-prefill"
+    });
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
   const espaciosCarros = useMemo(
     () => espacios.filter((e) => e.tipoVehiculo === "CARRO"),
     [espacios]
@@ -292,7 +319,7 @@ export const EntradaPage = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Panel de Entradas</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Panel de Entradas y Salidas</h1>
         </div>
 
         <Button

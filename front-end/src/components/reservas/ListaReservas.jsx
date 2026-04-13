@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 import {
   confirmarLlegada,
@@ -98,6 +99,7 @@ const getErrorMessage = (error, fallback) => {
 };
 
 export default function ListaReservas({ refresh }) {
+  const navigate = useNavigate();
 
   const [reservas, setReservas] = useState([]);
   const [filtro, setFiltro] = useState("pendientes");
@@ -132,9 +134,18 @@ export default function ListaReservas({ refresh }) {
   const handleConfirmar = async (codigoReserva) => {
     try {
       setProcesandoCodigo(codigoReserva);
-      await confirmarLlegada(codigoReserva);
-      toast.success("Reserva marcada como ACTIVA");
+      const reservaActualizada = await confirmarLlegada(codigoReserva);
       await fetchReservas();
+
+      navigate("/entrada", {
+        state: {
+          reservaConfirmada: true,
+          placa: reservaActualizada?.placa,
+          tipoVehiculo: reservaActualizada?.tipoVehiculo,
+          espacioId: reservaActualizada?.espacioId,
+          codigoReserva: reservaActualizada?.codigoReserva,
+        },
+      });
     } catch (error) {
       console.error(error);
       toast.error(getErrorMessage(error, "Error confirmando llegada"));

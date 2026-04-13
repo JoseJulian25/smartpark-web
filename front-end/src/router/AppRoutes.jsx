@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "../components/Layout";
 import { DashboardPage } from "../pages/DashboardPage";
 import { EntradaPage } from "../pages/EntradaPage";
-import { HistorialPage } from "../pages/HistorialPage";
 import  {LoginPage}  from "../pages/LoginPage.jsx";
 import { ReservasPage } from "../pages/ReservasPage";
 import { ConfiguracionPage } from "../pages/ConfiguracionPage";
@@ -27,10 +26,11 @@ export const AppRoutes = () => {
         <Route path="/salida" element={<Navigate to="/entrada" replace />} />
         <Route path="/espacios" element={<Navigate to="/entrada" replace />} />
         <Route path="/reservas" element={<ReservasPage />} />
-        <Route path="/historial" element={<HistorialPage />} />
+        <Route path="/historial" element={<Navigate to="/entrada" replace />} />
         <Route path="/configuracion" element={<Navigate to="/configuracion/empresa" replace />} />
         <Route path="/configuracion/empresa" element={<ConfiguracionPage initialTab="general" />} />
         <Route path="/configuracion/tarifas" element={<ConfiguracionPage initialTab="tarifas" />} />
+        <Route path="/configuracion/espacios" element={<ConfiguracionPage initialTab="espacios" />} />
         <Route path="/tarifas" element={<Navigate to="/configuracion/tarifas" replace />} />
         <Route path="/usuarios" element={<UsuariosPage />} />
         <Route path="/reportes" element={<Navigate to="/reportes/operativos" replace />} />

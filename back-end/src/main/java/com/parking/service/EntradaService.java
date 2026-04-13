@@ -19,6 +19,7 @@ import com.parking.entity.TipoVehiculo;
 import com.parking.entity.Usuario;
 import com.parking.repository.EspacioRepository;
 import com.parking.repository.EstadoEspacioRepository;
+import com.parking.repository.ReservaRepository;
 import com.parking.repository.EstadoTicketRepository;
 import com.parking.repository.TicketRepository;
 import com.parking.repository.TipoVehiculoRepository;
@@ -28,12 +29,15 @@ import com.parking.repository.UsuarioRepository;
 public class EntradaService {
 
     private static final String ESTADO_ESPACIO_LIBRE = "LIBRE";
+    private static final String ESTADO_ESPACIO_RESERVADO = "RESERVADO";
     private static final String ESTADO_ESPACIO_OCUPADO = "OCUPADO";
     private static final String ESTADO_TICKET_ACTIVO = "ACTIVO";
+    private static final String ESTADO_RESERVA_ACTIVA = "ACTIVA";
 
     private final EspacioRepository espacioRepository;
     private final EstadoEspacioRepository estadoEspacioRepository;
     private final TipoVehiculoRepository tipoVehiculoRepository;
+    private final ReservaRepository reservaRepository;
     private final TicketRepository ticketRepository;
     private final EstadoTicketRepository estadoTicketRepository;
     private final UsuarioRepository usuarioRepository;
@@ -42,12 +46,14 @@ public class EntradaService {
             EspacioRepository espacioRepository,
             EstadoEspacioRepository estadoEspacioRepository,
             TipoVehiculoRepository tipoVehiculoRepository,
+            ReservaRepository reservaRepository,
             TicketRepository ticketRepository,
             EstadoTicketRepository estadoTicketRepository,
             UsuarioRepository usuarioRepository) {
         this.espacioRepository = espacioRepository;
         this.estadoEspacioRepository = estadoEspacioRepository;
         this.tipoVehiculoRepository = tipoVehiculoRepository;
+        this.reservaRepository = reservaRepository;
         this.ticketRepository = ticketRepository;
         this.estadoTicketRepository = estadoTicketRepository;
         this.usuarioRepository = usuarioRepository;
@@ -65,12 +71,28 @@ public class EntradaService {
             throw new IllegalArgumentException("El espacio no corresponde al tipo de vehiculo indicado");
         }
 
+        String placa = normalize(dto.getPlaca()).toUpperCase(Locale.ROOT);
+
         String estadoEspacioActual = normalize(espacio.getEstado().getNombre()).toUpperCase(Locale.ROOT);
-        if (!ESTADO_ESPACIO_LIBRE.equals(estadoEspacioActual)) {
-            throw new IllegalStateException("Solo se puede registrar entrada en espacios libres");
+        if (!ESTADO_ESPACIO_LIBRE.equals(estadoEspacioActual)
+            && !ESTADO_ESPACIO_RESERVADO.equals(estadoEspacioActual)) {
+            throw new IllegalStateException("Solo se puede registrar entrada en espacios libres o reservados");
         }
 
-        String placa = normalize(dto.getPlaca()).toUpperCase(Locale.ROOT);
+        if (ESTADO_ESPACIO_RESERVADO.equals(estadoEspacioActual)) {
+            boolean reservaActiva = reservaRepository
+                .findTopByEspacioIdAndPlacaIgnoreCaseAndEstadoNombreIgnoreCaseOrderByHoraInicioDesc(
+                    espacio.getId(),
+                    placa,
+                    ESTADO_RESERVA_ACTIVA)
+                .isPresent();
+
+            if (!reservaActiva) {
+            throw new IllegalStateException(
+                "El espacio esta reservado. Solo se permite entrada para la reserva activa asociada");
+            }
+        }
+
         boolean placaActiva = ticketRepository
                 .findTopByPlacaAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(placa, ESTADO_TICKET_ACTIVO)
                 .isPresent();
