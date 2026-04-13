@@ -319,11 +319,11 @@ export const exportarCancelacionesCsv = async (params = {}) => {
   );
 };
 
-export const exportarResumenOperativoPdf = async (fecha) => {
+export const exportarResumenOperativoPdf = async (params = {}) => {
   return downloadBinary(
     "/reportes/export/pdf/resumen-operativo-diario",
-    "resumen_operativo_diario.pdf",
-    buildParams({ fecha })
+    "resumen_operativo.pdf",
+    buildParams(params)
   );
 };
 

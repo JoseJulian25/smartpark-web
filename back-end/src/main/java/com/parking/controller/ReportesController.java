@@ -1,7 +1,6 @@
 package com.parking.controller;
 
 import java.util.Map;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 
@@ -332,18 +331,21 @@ public class ReportesController {
 
     @GetMapping("/export/pdf/resumen-operativo-diario")
     public ResponseEntity<ByteArrayResource> exportarResumenOperativoDiarioPdf(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
-        String fileName = reportesService.construirNombreArchivoPdf("resumen_operativo_diario");
-        byte[] data = reportesService.exportarResumenOperativoDiarioPdf(fecha);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
+            @RequestParam(required = false) String granularidad) {
+        String fileName = reportesService.construirNombreArchivoPdf("resumen_operativo");
+        byte[] data = reportesService.exportarResumenOperativoDiarioPdf(fechaDesde, fechaHasta, granularidad);
         return construirRespuestaPdf(fileName, data);
     }
 
     @GetMapping("/export/pdf/cancelaciones")
     public ResponseEntity<ByteArrayResource> exportarCancelacionesPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
+            @RequestParam(required = false) String granularidad) {
         String fileName = reportesService.construirNombreArchivoPdf("cancelaciones_reservas");
-        byte[] data = reportesService.exportarCancelacionesConMotivoPdf(fechaDesde, fechaHasta);
+        byte[] data = reportesService.exportarCancelacionesConMotivoPdf(fechaDesde, fechaHasta, granularidad);
         return construirRespuestaPdf(fileName, data);
     }
 
@@ -374,9 +376,10 @@ public class ReportesController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
             @RequestParam(required = false) Long usuarioId,
-            @RequestParam(required = false) String tipoVehiculo) {
+            @RequestParam(required = false) String tipoVehiculo,
+            @RequestParam(required = false) String granularidad) {
         String fileName = reportesService.construirNombreArchivoEstandar("reportes", "resumen_ejecutivo", "pdf");
-        byte[] data = reportesService.exportarResumenEjecutivoPdf(fechaDesde, fechaHasta, usuarioId, tipoVehiculo);
+        byte[] data = reportesService.exportarResumenEjecutivoPdf(fechaDesde, fechaHasta, usuarioId, tipoVehiculo, granularidad);
         return construirRespuestaPdf(fileName, data);
     }
 

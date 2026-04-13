@@ -12,7 +12,7 @@ import {
 } from "recharts";
 
 import {
-  exportarTicketsCsv,
+  exportarResumenOperativoPdf,
   getEntradasPorHora,
   getSalidasPorHora,
   getTicketsActivosReporte,
@@ -21,9 +21,12 @@ import {
 } from "../../api/reportes";
 import { getUsuarios } from "../../api/usuarios";
 import { Button } from "../../components/ui/button";
+import { ReportesExportDialog } from "../../components/reportes/ReportesExportDialog";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
+import { useExportProgress } from "../../hooks/reportes/useExportProgress";
+import { buildProfessionalReportFileName, triggerFileDownload } from "../../lib/download";
 import {
   Select,
   SelectContent,
@@ -69,16 +72,19 @@ const toApiLocalDateTime = (value) => {
   return value.length === 16 ? `${value}:00` : value;
 };
 
-const triggerFileDownload = (blob, fileName) => {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName || "reporte.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
+const normalizarGranularidadPdf = (value) => {
+  if (value === "semana" || value === "mes") return value;
+  return "dia";
 };
+
+const OPERATIVOS_EXPORT_OPTIONS = [
+  {
+    value: "pdf_resumen_operativo",
+    label: "PDF resumen operativo",
+    extension: "pdf",
+    tipoReporte: "operativos_resumen",
+  },
+];
 
 export const ReportesOperativosPage = () => {
   const [fechaDesde, setFechaDesde] = useState(startOfTodayInput());
@@ -96,6 +102,10 @@ export const ReportesOperativosPage = () => {
   const [salidasSerie, setSalidasSerie] = useState([]);
   const [ticketsActivos, setTicketsActivos] = useState([]);
   const [estadiasLargas, setEstadiasLargas] = useState([]);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportType, setExportType] = useState("pdf_resumen_operativo");
+
+  const { exporting, progress, runWithProgress } = useExportProgress();
 
   const cargarDatos = async () => {
     try {
@@ -191,17 +201,40 @@ export const ReportesOperativosPage = () => {
     setUsuarioSeleccionado("TODOS");
   };
 
-  const exportarCsvTickets = async () => {
+  const exportarReporte = async () => {
+    const selected = OPERATIVOS_EXPORT_OPTIONS.find((option) => option.value === exportType);
+    if (!selected) {
+      toast.error("Selecciona un bloque de exportacion");
+      return;
+    }
+
     try {
-      const params = {
-        fechaDesde: toApiLocalDateTime(fechaDesde),
-        fechaHasta: toApiLocalDateTime(fechaHasta),
-      };
-      const { blob, fileName } = await exportarTicketsCsv(params);
-      triggerFileDownload(blob, fileName);
-      toast.success("CSV de tickets descargado");
+      await runWithProgress(async () => {
+        const params = {
+          fechaDesde: toApiLocalDateTime(fechaDesde),
+          fechaHasta: toApiLocalDateTime(fechaHasta),
+          usuarioId: usuarioSeleccionado !== "TODOS" ? Number(usuarioSeleccionado) : undefined,
+        };
+
+        const response = await exportarResumenOperativoPdf({
+          fechaDesde: params.fechaDesde,
+          fechaHasta: params.fechaHasta,
+          granularidad: normalizarGranularidadPdf(granularidad),
+        });
+
+        const professionalName = buildProfessionalReportFileName({
+          modulo: "reportes",
+          tipoReporte: selected.tipoReporte,
+          extension: selected.extension,
+        });
+
+        triggerFileDownload(response.blob, professionalName || response.fileName);
+      });
+
+      setIsExportOpen(false);
+      toast.success("Exportacion completada");
     } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo exportar tickets CSV");
+      const message = await getReportesErrorMessage(error, "No se pudo exportar el reporte seleccionado");
       toast.error(message);
     }
   };
@@ -213,14 +246,27 @@ export const ReportesOperativosPage = () => {
       actions={(
         <Button
           size="sm"
-          className="bg-emerald-600 text-white hover:bg-emerald-700"
-          onClick={exportarCsvTickets}
+          className="bg-slate-900 text-white hover:bg-slate-800"
+          onClick={() => setIsExportOpen(true)}
           disabled={loading}
         >
-          Exportar CSV tickets
+          Exportar reportes
         </Button>
       )}
     >
+      <ReportesExportDialog
+        open={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        title="Exportacion avanzada operativa"
+        description="Genera PDF profesional con el rango de fechas activo."
+        options={OPERATIVOS_EXPORT_OPTIONS}
+        value={exportType}
+        onValueChange={setExportType}
+        onExport={exportarReporte}
+        exporting={exporting}
+        progress={progress}
+      />
+
       <ReportesContextBar
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}

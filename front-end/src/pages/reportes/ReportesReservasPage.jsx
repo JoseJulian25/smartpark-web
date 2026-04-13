@@ -12,8 +12,7 @@ import {
 } from "recharts";
 
 import {
-  exportarCancelacionesCsv,
-  exportarReservasCsv,
+  exportarCancelacionesPdf,
   getCancelacionesDetalleReporte,
   getReportesErrorMessage,
   getReservasPorEstadoReporte,
@@ -21,9 +20,12 @@ import {
 } from "../../api/reportes";
 import { getUsuarios } from "../../api/usuarios";
 import { Button } from "../../components/ui/button";
+import { ReportesExportDialog } from "../../components/reportes/ReportesExportDialog";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
+import { useExportProgress } from "../../hooks/reportes/useExportProgress";
+import { buildProfessionalReportFileName, triggerFileDownload } from "../../lib/download";
 import {
   Table,
   TableBody,
@@ -55,16 +57,19 @@ const toApiLocalDateTime = (value) => {
   return value.length === 16 ? `${value}:00` : value;
 };
 
-const triggerFileDownload = (blob, fileName) => {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName || "reporte.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
+const normalizarGranularidadPdf = (value) => {
+  if (value === "semana" || value === "mes") return value;
+  return "dia";
 };
+
+const RESERVAS_EXPORT_OPTIONS = [
+  {
+    value: "pdf_cancelaciones",
+    label: "PDF cancelaciones detalladas",
+    extension: "pdf",
+    tipoReporte: "reservas_cancelaciones_detalle",
+  },
+];
 
 const toNumber = (value) => Number(value || 0);
 
@@ -89,6 +94,10 @@ export const ReportesReservasPage = () => {
   const [kpisRaw, setKpisRaw] = useState([]);
   const [cancelaciones, setCancelaciones] = useState([]);
   const [reservasProximas, setReservasProximas] = useState([]);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportType, setExportType] = useState("pdf_cancelaciones");
+
+  const { exporting, progress, runWithProgress } = useExportProgress();
 
   const cargarDatos = async () => {
     try {
@@ -165,32 +174,36 @@ export const ReportesReservasPage = () => {
     setUsuarioSeleccionado("TODOS");
   };
 
-  const exportarCsvReservasActuales = async () => {
-    try {
-      const params = {
-        fechaDesde: toApiLocalDateTime(fechaDesde),
-        fechaHasta: toApiLocalDateTime(fechaHasta),
-      };
-      const { blob, fileName } = await exportarReservasCsv(params);
-      triggerFileDownload(blob, fileName);
-      toast.success("CSV de reservas descargado");
-    } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo exportar reservas CSV");
-      toast.error(message);
+  const exportarReporte = async () => {
+    const selected = RESERVAS_EXPORT_OPTIONS.find((option) => option.value === exportType);
+    if (!selected) {
+      toast.error("Selecciona un bloque de exportacion");
+      return;
     }
-  };
 
-  const exportarCsvCancelacionesActuales = async () => {
     try {
-      const params = {
-        fechaDesde: toApiLocalDateTime(fechaDesde),
-        fechaHasta: toApiLocalDateTime(fechaHasta),
-      };
-      const { blob, fileName } = await exportarCancelacionesCsv(params);
-      triggerFileDownload(blob, fileName);
-      toast.success("CSV de cancelaciones descargado");
+      await runWithProgress(async () => {
+        const params = {
+          fechaDesde: toApiLocalDateTime(fechaDesde),
+          fechaHasta: toApiLocalDateTime(fechaHasta),
+          granularidad: normalizarGranularidadPdf(granularidad),
+        };
+
+        const response = await exportarCancelacionesPdf(params);
+
+        const professionalName = buildProfessionalReportFileName({
+          modulo: "reportes",
+          tipoReporte: selected.tipoReporte,
+          extension: selected.extension,
+        });
+
+        triggerFileDownload(response.blob, professionalName || response.fileName);
+      });
+
+      setIsExportOpen(false);
+      toast.success("Exportacion completada");
     } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo exportar cancelaciones CSV");
+      const message = await getReportesErrorMessage(error, "No se pudo exportar el reporte seleccionado");
       toast.error(message);
     }
   };
@@ -200,26 +213,29 @@ export const ReportesReservasPage = () => {
       title="Reportes de Reservas"
       subtitle="Vista compacta de estados, cancelaciones y reservas proximas."
       actions={(
-        <>
-          <Button
-            size="sm"
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={exportarCsvReservasActuales}
-            disabled={loading}
-          >
-            Exportar CSV reservas
-          </Button>
-          <Button
-            size="sm"
-            className="bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={exportarCsvCancelacionesActuales}
-            disabled={loading}
-          >
-            Exportar CSV cancelaciones
-          </Button>
-        </>
+        <Button
+          size="sm"
+          className="bg-slate-900 text-white hover:bg-slate-800"
+          onClick={() => setIsExportOpen(true)}
+          disabled={loading}
+        >
+          Exportar reportes
+        </Button>
       )}
     >
+      <ReportesExportDialog
+        open={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        title="Exportacion avanzada de reservas"
+        description="Genera PDF profesional de cancelaciones con el rango de fechas seleccionado."
+        options={RESERVAS_EXPORT_OPTIONS}
+        value={exportType}
+        onValueChange={setExportType}
+        onExport={exportarReporte}
+        exporting={exporting}
+        progress={progress}
+      />
+
       <ReportesContextBar
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}

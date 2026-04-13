@@ -1,6 +1,7 @@
 package com.parking.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -20,6 +21,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.awt.Color;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -32,6 +34,7 @@ import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
 import com.lowagie.text.FontFactory;
+import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.pdf.PdfPCell;
@@ -78,6 +81,11 @@ public class ReportesService {
     private static final int DEFAULT_PAGE = 0;
     private static final int DEFAULT_SIZE = 50;
     private static final int MAX_SIZE = 200;
+    private static final Color PDF_PRIMARY_COLOR = new Color(15, 23, 42);
+    private static final Color PDF_SECONDARY_TEXT = new Color(71, 85, 105);
+    private static final Color PDF_HEADER_BG = new Color(226, 232, 240);
+    private static final Color PDF_BAR_COLOR = new Color(14, 116, 144);
+    private static final Color PDF_BAR_BG = new Color(226, 232, 240);
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter FILE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter FILE_STANDARD_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
@@ -1393,43 +1401,70 @@ public class ReportesService {
         }
 
             @Transactional(readOnly = true)
-            public byte[] exportarResumenOperativoDiarioPdf(LocalDate fecha) {
-            LocalDate dia = fecha == null ? LocalDate.now() : fecha;
-            RangoFechas rangoDia = new RangoFechas(dia.atStartOfDay(), dia.plusDays(1).atStartOfDay());
+            public byte[] exportarResumenOperativoDiarioPdf(LocalDateTime fechaDesde, LocalDateTime fechaHasta, String granularidad) {
+            RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
+            String granularidadNormalizada = normalizarGranularidad(granularidad);
 
-            long entradas = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
-                rangoDia.fechaDesde(),
-                rangoDia.fechaHasta()).size();
-            long salidas = ticketRepository.findAllByHoraSalidaGreaterThanEqualAndHoraSalidaLessThan(
-                rangoDia.fechaDesde(),
-                rangoDia.fechaHasta()).size();
+            List<Ticket> entradasEnRango = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
+                rango.fechaDesde(),
+                rango.fechaHasta());
+            List<Ticket> salidasEnRango = ticketRepository.findAllByHoraSalidaGreaterThanEqualAndHoraSalidaLessThan(
+                rango.fechaDesde(),
+                rango.fechaHasta());
+            List<Reserva> reservasCreadasEnRango = obtenerReservasCreadasEnRango(rango);
+            List<Reserva> cancelacionesEnRango = obtenerReservasCanceladasEnRango(rango);
+
+            long entradas = entradasEnRango.size();
+            long salidas = salidasEnRango.size();
             long activos = ticketRepository.findAll().stream()
                 .filter(ticket -> ticket.getEstado() != null)
                 .filter(ticket -> ESTADO_TICKET_ACTIVO.equalsIgnoreCase(ticket.getEstado().getNombre()))
                 .count();
-            long reservasCreadas = obtenerReservasCreadasEnRango(rangoDia).size();
-            long cancelaciones = obtenerReservasCanceladasEnRango(rangoDia).size();
+            long reservasCreadas = reservasCreadasEnRango.size();
+            long cancelaciones = cancelacionesEnRango.size();
+
+            Map<String, BigDecimal> entradasPorPeriodo = agruparConteoPorPeriodoTicket(
+                entradasEnRango,
+                Ticket::getHoraEntrada,
+                granularidadNormalizada);
+            Map<String, BigDecimal> salidasPorPeriodo = agruparConteoPorPeriodoTicket(
+                salidasEnRango,
+                Ticket::getHoraSalida,
+                granularidadNormalizada);
+            Map<String, BigDecimal> reservasPorPeriodo = agruparConteoPorPeriodoReserva(
+                reservasCreadasEnRango,
+                Reserva::getFechaCreacion,
+                granularidadNormalizada);
+            Map<String, BigDecimal> cancelacionesPorPeriodo = agruparConteoPorPeriodoReserva(
+                cancelacionesEnRango,
+                Reserva::getHoraFin,
+                granularidadNormalizada);
 
             List<String> headers = List.of("Indicador", "Valor");
             List<List<String>> rows = List.of(
-                List.of("Fecha", dia.toString()),
-                List.of("Entradas del dia", String.valueOf(entradas)),
-                List.of("Salidas del dia", String.valueOf(salidas)),
-                List.of("Flujo neto del dia", String.valueOf(entradas - salidas)),
+                List.of("Entradas en rango", String.valueOf(entradas)),
+                List.of("Salidas en rango", String.valueOf(salidas)),
+                List.of("Flujo neto en rango", String.valueOf(entradas - salidas)),
                 List.of("Tickets activos actuales", String.valueOf(activos)),
-                List.of("Reservas creadas del dia", String.valueOf(reservasCreadas)),
-                List.of("Cancelaciones del dia", String.valueOf(cancelaciones)));
+                List.of("Reservas creadas en rango", String.valueOf(reservasCreadas)),
+                List.of("Cancelaciones en rango", String.valueOf(cancelaciones)),
+                List.of("Granularidad aplicada", granularidadNormalizada));
 
-            return generarPdf(
-                "Resumen operativo diario",
-                "Corte generado: " + formatDateTime(LocalDateTime.now()),
-                headers,
-                rows);
+            return generarPdfProfesional(
+                "Resumen operativo",
+                "Periodo: " + construirTextoPeriodo(rango) + " | Granularidad: " + granularidadNormalizada,
+                List.of(new PdfTablaSeccion("Indicadores clave", headers, rows)),
+                List.of(
+                    new PdfGraficaSeccion("Entradas por periodo", "eventos", toTopBarItems(entradasPorPeriodo, 12)),
+                    new PdfGraficaSeccion("Salidas por periodo", "eventos", toTopBarItems(salidasPorPeriodo, 12)),
+                    new PdfGraficaSeccion("Reservas creadas por periodo", "eventos", toTopBarItems(reservasPorPeriodo, 12)),
+                    new PdfGraficaSeccion("Cancelaciones por periodo", "eventos", toTopBarItems(cancelacionesPorPeriodo, 12))));
             }
 
             @Transactional(readOnly = true)
-            public byte[] exportarCancelacionesConMotivoPdf(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
+            public byte[] exportarCancelacionesConMotivoPdf(LocalDateTime fechaDesde, LocalDateTime fechaHasta, String granularidad) {
             RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
+            String granularidadNormalizada = normalizarGranularidad(granularidad);
             List<Reserva> canceladas = obtenerReservasCanceladasEnRango(rango);
 
             List<String> headers = List.of(
@@ -1452,8 +1487,46 @@ public class ReportesService {
                     normalizarMotivo(reserva.getMotivoCancelacion())))
                 .toList();
 
-            String subtitulo = "Rango: " + formatDateTime(rango.fechaDesde()) + " a " + formatDateTime(rango.fechaHasta());
-            return generarPdf("Cancelaciones de reservas con motivo", subtitulo, headers, rows);
+            long sinMotivo = canceladas.stream()
+                .map(Reserva::getMotivoCancelacion)
+                .map(this::normalizarMotivo)
+                .filter("SIN_MOTIVO_REGISTRADO"::equals)
+                .count();
+            long conMotivo = canceladas.size() - sinMotivo;
+
+            List<PdfBarItem> motivosChart = canceladas.stream()
+                .collect(Collectors.groupingBy(
+                    reserva -> normalizarMotivo(reserva.getMotivoCancelacion()),
+                    Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .limit(6)
+                .map(entry -> new PdfBarItem(entry.getKey(), BigDecimal.valueOf(entry.getValue())))
+                .toList();
+
+            Map<String, BigDecimal> cancelacionesPorPeriodo = agruparConteoPorPeriodoReserva(
+                canceladas,
+                Reserva::getHoraFin,
+                granularidadNormalizada);
+
+            String subtitulo = "Rango: " + formatDateTime(rango.fechaDesde()) + " a " + formatDateTime(rango.fechaHasta())
+                + " | Granularidad: " + granularidadNormalizada;
+            List<String> summaryHeaders = List.of("Indicador", "Valor");
+            List<List<String>> summaryRows = List.of(
+                List.of("Cancelaciones totales", String.valueOf(canceladas.size())),
+                List.of("Con motivo detallado", String.valueOf(conMotivo)),
+                List.of("Sin motivo registrado", String.valueOf(sinMotivo)),
+                List.of("Granularidad aplicada", granularidadNormalizada));
+
+            return generarPdfProfesional(
+                "Cancelaciones de reservas con motivo",
+                subtitulo,
+                List.of(
+                    new PdfTablaSeccion("Resumen de cancelaciones", summaryHeaders, summaryRows),
+                    new PdfTablaSeccion("Detalle de cancelaciones", headers, rows)),
+                List.of(
+                    new PdfGraficaSeccion("Top motivos de cancelacion", "casos", motivosChart),
+                    new PdfGraficaSeccion("Cancelaciones por periodo", "casos", toTopBarItems(cancelacionesPorPeriodo, 12))));
             }
 
                 public byte[] exportarOperativosAvanzadoCsv(
@@ -1476,8 +1549,9 @@ public class ReportesService {
                     LocalDateTime fechaDesde,
                     LocalDateTime fechaHasta,
                     Long usuarioId,
-                    String tipoVehiculo) {
-                return exportarResumenEjecutivoPdfImpl(fechaDesde, fechaHasta, usuarioId, tipoVehiculo);
+                    String tipoVehiculo,
+                    String granularidad) {
+                return exportarResumenEjecutivoPdfImpl(fechaDesde, fechaHasta, usuarioId, tipoVehiculo, granularidad);
                 }
 
                 public String construirNombreArchivoEstandar(String modulo, String tipoReporte, String extension) {
@@ -1585,9 +1659,11 @@ public class ReportesService {
                     LocalDateTime fechaDesde,
                     LocalDateTime fechaHasta,
                     Long usuarioId,
-                    String tipoVehiculo) {
+                    String tipoVehiculo,
+                    String granularidad) {
             RangoFechas rango = resolverRango(fechaDesde, fechaHasta);
             String tipoNormalizado = normalizarTexto(tipoVehiculo).toUpperCase(Locale.ROOT);
+            String granularidadNormalizada = normalizarGranularidad(granularidad);
 
             List<Ticket> tickets = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
                 rango.fechaDesde(),
@@ -1616,9 +1692,34 @@ public class ReportesService {
                 .filter(ticket -> ticket.getHoraSalida() != null)
                 .count();
 
+            Map<String, BigDecimal> ingresosPorTipo = pagos.stream()
+                .collect(Collectors.groupingBy(
+                    pago -> pago.getTicket() == null || pago.getTicket().getTipoVehiculo() == null
+                        ? "SIN_TIPO"
+                        : valorCsv(pago.getTicket().getTipoVehiculo().getNombre()),
+                    Collectors.mapping(
+                        pago -> pago.getMonto() == null ? BigDecimal.ZERO : pago.getMonto(),
+                        Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+
+            Map<String, BigDecimal> ingresosPorMetodo = pagos.stream()
+                .collect(Collectors.groupingBy(
+                    pago -> normalizarMetodoPago(pago.getMetodoPago()),
+                    Collectors.mapping(
+                        pago -> pago.getMonto() == null ? BigDecimal.ZERO : pago.getMonto(),
+                        Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+
+            Map<String, BigDecimal> ingresosPorPeriodo = pagos.stream()
+                .filter(pago -> pago.getHoraPago() != null)
+                .collect(Collectors.groupingBy(
+                    pago -> construirEtiquetaPeriodo(pago.getHoraPago(), granularidadNormalizada),
+                    Collectors.mapping(
+                        pago -> pago.getMonto() == null ? BigDecimal.ZERO : pago.getMonto(),
+                        Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+
             String subtitulo = "Periodo: " + formatDateTime(rango.fechaDesde()) + " a " + formatDateTime(rango.fechaHasta())
                 + " | Usuario: " + (usuarioId == null ? "TODOS" : usuarioId)
-                + " | Tipo vehiculo: " + (tipoNormalizado.isBlank() ? "TODOS" : tipoNormalizado);
+                + " | Tipo vehiculo: " + (tipoNormalizado.isBlank() ? "TODOS" : tipoNormalizado)
+                + " | Granularidad: " + granularidadNormalizada;
 
             List<String> headers = List.of("Indicador", "Valor");
             List<List<String>> rows = List.of(
@@ -1626,9 +1727,17 @@ public class ReportesService {
                 List.of("Tickets en periodo", String.valueOf(tickets.size())),
                 List.of("Tickets finalizados", String.valueOf(ticketsFinalizados)),
                 List.of("Tickets activos", String.valueOf(ticketsActivos)),
-                List.of("Pagos procesados", String.valueOf(pagos.size())));
+                List.of("Pagos procesados", String.valueOf(pagos.size())),
+                List.of("Granularidad aplicada", granularidadNormalizada));
 
-            return generarPdf("Resumen ejecutivo de reportes", subtitulo, headers, rows);
+            return generarPdfProfesional(
+                "Resumen ejecutivo de reportes",
+                subtitulo,
+                List.of(new PdfTablaSeccion("KPIs ejecutivos", headers, rows)),
+                List.of(
+                    new PdfGraficaSeccion("Ingresos por tipo de vehiculo", MONEDA_DEFAULT, toTopBarItems(ingresosPorTipo, 8)),
+                    new PdfGraficaSeccion("Ingresos por metodo de pago", MONEDA_DEFAULT, toTopBarItems(ingresosPorMetodo, 8)),
+                    new PdfGraficaSeccion("Ingresos por periodo", MONEDA_DEFAULT, toTopBarItems(ingresosPorPeriodo, 12))));
             }
 
             public String construirNombreArchivoPdf(String prefijo) {
@@ -1840,9 +1949,36 @@ public class ReportesService {
                 rango.fechaHasta());
         }
 
+        private Map<String, BigDecimal> agruparConteoPorPeriodoTicket(
+                List<Ticket> tickets,
+                Function<Ticket, LocalDateTime> extractor,
+                String granularidad) {
+            return tickets.stream()
+                .map(extractor)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.groupingBy(
+                    fecha -> construirEtiquetaPeriodo(fecha, granularidad),
+                    Collectors.collectingAndThen(Collectors.counting(), BigDecimal::valueOf)));
+        }
+
+        private Map<String, BigDecimal> agruparConteoPorPeriodoReserva(
+                List<Reserva> reservas,
+                Function<Reserva, LocalDateTime> extractor,
+                String granularidad) {
+            return reservas.stream()
+                .map(extractor)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.groupingBy(
+                    fecha -> construirEtiquetaPeriodo(fecha, granularidad),
+                    Collectors.collectingAndThen(Collectors.counting(), BigDecimal::valueOf)));
+        }
+
         private String normalizarGranularidad(String granularidad) {
             String value = normalizarTexto(granularidad).toLowerCase(Locale.ROOT);
             if (value.isBlank()) {
+                return "dia";
+            }
+            if (value.equals("hora")) {
                 return "dia";
             }
             if (value.equals("dia") || value.equals("semana") || value.equals("mes")) {
@@ -2066,40 +2202,28 @@ public class ReportesService {
             return value == null || value.isBlank() ? "-" : value.trim();
         }
 
-        private byte[] generarPdf(String titulo, String subtitulo, List<String> headers, List<List<String>> rows) {
+        private byte[] generarPdfProfesional(
+            String titulo,
+            String subtitulo,
+            List<PdfTablaSeccion> tablas,
+            List<PdfGraficaSeccion> graficas) {
             try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-                Document document = new Document();
+                Document document = new Document(PageSize.A4, 32f, 32f, 36f, 30f);
                 PdfWriter.getInstance(document, outputStream);
                 document.open();
 
-                Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-                Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 10);
-                Paragraph title = new Paragraph(titulo, titleFont);
-                title.setAlignment(Element.ALIGN_LEFT);
-                document.add(title);
+                agregarCabeceraPdf(document, titulo, subtitulo);
 
-                if (subtitulo != null && !subtitulo.isBlank()) {
-                    Paragraph subtitle = new Paragraph(subtitulo, subtitleFont);
-                    subtitle.setSpacingAfter(10f);
-                    document.add(subtitle);
+                for (PdfTablaSeccion tabla : tablas) {
+                    agregarSeccionTitulo(document, tabla.titulo());
+                    document.add(construirTablaPdf(tabla.headers(), tabla.rows()));
                 }
 
-                PdfPTable table = new PdfPTable(headers.size());
-                table.setWidthPercentage(100f);
-
-                for (String header : headers) {
-                    PdfPCell cell = new PdfPCell(new Phrase(header));
-                    cell.setHorizontalAlignment(Element.ALIGN_LEFT);
-                    table.addCell(cell);
+                for (PdfGraficaSeccion grafica : graficas) {
+                    agregarSeccionTitulo(document, grafica.titulo());
+                    document.add(construirTablaGraficaBarras(grafica.items(), grafica.unidad()));
                 }
 
-                for (List<String> row : rows) {
-                    for (String col : row) {
-                        table.addCell(valorCsv(col));
-                    }
-                }
-
-                document.add(table);
                 document.close();
                 return outputStream.toByteArray();
             } catch (DocumentException | IOException ex) {
@@ -2107,9 +2231,181 @@ public class ReportesService {
             }
         }
 
+        private void agregarCabeceraPdf(Document document, String titulo, String subtitulo) throws DocumentException {
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, PDF_PRIMARY_COLOR);
+            Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, PDF_SECONDARY_TEXT);
+
+            Paragraph title = new Paragraph(valorCsv(titulo), titleFont);
+            title.setAlignment(Element.ALIGN_LEFT);
+            title.setSpacingAfter(4f);
+            document.add(title);
+
+            if (subtitulo != null && !subtitulo.isBlank()) {
+                Paragraph subtitle = new Paragraph(subtitulo, subtitleFont);
+                subtitle.setAlignment(Element.ALIGN_LEFT);
+                subtitle.setSpacingAfter(2f);
+                document.add(subtitle);
+            }
+
+            Paragraph generated = new Paragraph(
+                "Emitido: " + formatDateTime(LocalDateTime.now()),
+                FontFactory.getFont(FontFactory.HELVETICA, 8, PDF_SECONDARY_TEXT));
+            generated.setSpacingAfter(12f);
+            document.add(generated);
+        }
+
+        private void agregarSeccionTitulo(Document document, String titulo) throws DocumentException {
+            Paragraph sectionTitle = new Paragraph(
+                valorCsv(titulo),
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, PDF_PRIMARY_COLOR));
+            sectionTitle.setSpacingBefore(8f);
+            sectionTitle.setSpacingAfter(6f);
+            document.add(sectionTitle);
+        }
+
+        private PdfPTable construirTablaPdf(List<String> headers, List<List<String>> rows) {
+            PdfPTable table = new PdfPTable(Math.max(1, headers.size()));
+            table.setWidthPercentage(100f);
+            table.setSpacingAfter(8f);
+
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, PDF_PRIMARY_COLOR);
+            Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 9);
+
+            for (String header : headers) {
+                PdfPCell cell = new PdfPCell(new Phrase(valorCsv(header), headerFont));
+                cell.setBackgroundColor(PDF_HEADER_BG);
+                cell.setPadding(6f);
+                cell.setHorizontalAlignment(Element.ALIGN_LEFT);
+                table.addCell(cell);
+            }
+
+            if (rows == null || rows.isEmpty()) {
+                PdfPCell empty = new PdfPCell(new Phrase("Sin datos para mostrar", cellFont));
+                empty.setColspan(Math.max(1, headers.size()));
+                empty.setPadding(8f);
+                empty.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(empty);
+                return table;
+            }
+
+            for (List<String> row : rows) {
+                for (String col : row) {
+                    PdfPCell dataCell = new PdfPCell(new Phrase(valorCsv(col), cellFont));
+                    dataCell.setPadding(5f);
+                    dataCell.setHorizontalAlignment(Element.ALIGN_LEFT);
+                    table.addCell(dataCell);
+                }
+            }
+
+            return table;
+        }
+
+        private PdfPTable construirTablaGraficaBarras(List<PdfBarItem> items, String unidad) {
+            PdfPTable chart = new PdfPTable(new float[] {3.2f, 4.8f, 2f});
+            chart.setWidthPercentage(100f);
+            chart.setSpacingAfter(10f);
+
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, PDF_PRIMARY_COLOR);
+            Font textFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
+
+            chart.addCell(crearHeaderChartCell("Etiqueta", headerFont));
+            chart.addCell(crearHeaderChartCell("Grafica", headerFont));
+            chart.addCell(crearHeaderChartCell("Valor", headerFont));
+
+            if (items == null || items.isEmpty()) {
+                PdfPCell empty = new PdfPCell(new Phrase("Sin datos para graficar", textFont));
+                empty.setColspan(3);
+                empty.setPadding(8f);
+                empty.setHorizontalAlignment(Element.ALIGN_CENTER);
+                chart.addCell(empty);
+                return chart;
+            }
+
+            BigDecimal max = items.stream()
+                .map(PdfBarItem::valor)
+                .filter(java.util.Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ONE);
+
+            if (max.compareTo(BigDecimal.ZERO) <= 0) {
+                max = BigDecimal.ONE;
+            }
+
+            for (PdfBarItem item : items) {
+                BigDecimal valor = item.valor() == null ? BigDecimal.ZERO : item.valor();
+                int porcentaje = valor.multiply(BigDecimal.valueOf(100))
+                    .divide(max, 0, RoundingMode.HALF_UP)
+                    .intValue();
+
+                chart.addCell(crearDataChartCell(valorCsv(item.etiqueta()), textFont, Element.ALIGN_LEFT));
+                chart.addCell(crearBarCell(porcentaje));
+                chart.addCell(crearDataChartCell(
+                    valor.setScale(2, RoundingMode.HALF_UP).toPlainString() + " " + valorCsv(unidad),
+                    textFont,
+                    Element.ALIGN_RIGHT));
+            }
+
+            return chart;
+        }
+
+        private PdfPCell crearHeaderChartCell(String text, Font font) {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.setBackgroundColor(PDF_HEADER_BG);
+            cell.setPadding(6f);
+            cell.setHorizontalAlignment(Element.ALIGN_LEFT);
+            return cell;
+        }
+
+        private PdfPCell crearDataChartCell(String text, Font font, int alignment) {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.setPadding(5f);
+            cell.setHorizontalAlignment(alignment);
+            return cell;
+        }
+
+        private PdfPCell crearBarCell(int porcentaje) {
+            int clamped = Math.max(0, Math.min(100, porcentaje));
+            PdfPTable bar = new PdfPTable(new float[] {clamped <= 0 ? 1 : clamped, clamped >= 100 ? 1 : 100 - clamped});
+            bar.setWidthPercentage(100f);
+
+            PdfPCell filled = new PdfPCell(new Phrase(""));
+            filled.setBorderWidth(0f);
+            filled.setFixedHeight(10f);
+            filled.setBackgroundColor(clamped == 0 ? PDF_BAR_BG : PDF_BAR_COLOR);
+
+            PdfPCell empty = new PdfPCell(new Phrase(""));
+            empty.setBorderWidth(0f);
+            empty.setFixedHeight(10f);
+            empty.setBackgroundColor(PDF_BAR_BG);
+
+            bar.addCell(filled);
+            bar.addCell(empty);
+
+            PdfPCell wrapper = new PdfPCell(bar);
+            wrapper.setPadding(3f);
+            return wrapper;
+        }
+
+        private List<PdfBarItem> toTopBarItems(Map<String, BigDecimal> source, int limit) {
+            return source.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue(Comparator.reverseOrder()))
+                .limit(limit)
+                .map(entry -> new PdfBarItem(valorCsv(entry.getKey()), entry.getValue() == null ? BigDecimal.ZERO : entry.getValue()))
+                .toList();
+        }
+
         private record RangoFechas(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
         }
 
         private record RangosComparacion(RangoFechas actual, RangoFechas comparado) {
+        }
+
+        private record PdfTablaSeccion(String titulo, List<String> headers, List<List<String>> rows) {
+        }
+
+        private record PdfGraficaSeccion(String titulo, String unidad, List<PdfBarItem> items) {
+        }
+
+        private record PdfBarItem(String etiqueta, BigDecimal valor) {
         }
 }
