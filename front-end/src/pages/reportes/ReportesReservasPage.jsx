@@ -12,20 +12,15 @@ import {
 } from "recharts";
 
 import {
-  exportarCancelacionesPdf,
   getCancelacionesDetalleReporte,
   getReportesErrorMessage,
   getReservasPorEstadoReporte,
   getReservasProximasReporte,
 } from "../../api/reportes";
 import { getUsuarios } from "../../api/usuarios";
-import { Button } from "../../components/ui/button";
-import { ReportesExportDialog } from "../../components/reportes/ReportesExportDialog";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
-import { useExportProgress } from "../../hooks/reportes/useExportProgress";
-import { buildProfessionalReportFileName, triggerFileDownload } from "../../lib/download";
 import {
   Table,
   TableBody,
@@ -57,20 +52,6 @@ const toApiLocalDateTime = (value) => {
   return value.length === 16 ? `${value}:00` : value;
 };
 
-const normalizarGranularidadPdf = (value) => {
-  if (value === "semana" || value === "mes") return value;
-  return "dia";
-};
-
-const RESERVAS_EXPORT_OPTIONS = [
-  {
-    value: "pdf_cancelaciones",
-    label: "PDF cancelaciones detalladas",
-    extension: "pdf",
-    tipoReporte: "reservas_cancelaciones_detalle",
-  },
-];
-
 const toNumber = (value) => Number(value || 0);
 
 const KPI_ORDER = [
@@ -94,10 +75,6 @@ export const ReportesReservasPage = () => {
   const [kpisRaw, setKpisRaw] = useState([]);
   const [cancelaciones, setCancelaciones] = useState([]);
   const [reservasProximas, setReservasProximas] = useState([]);
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportType, setExportType] = useState("pdf_cancelaciones");
-
-  const { exporting, progress, runWithProgress } = useExportProgress();
 
   const cargarDatos = async () => {
     try {
@@ -174,68 +151,12 @@ export const ReportesReservasPage = () => {
     setUsuarioSeleccionado("TODOS");
   };
 
-  const exportarReporte = async () => {
-    const selected = RESERVAS_EXPORT_OPTIONS.find((option) => option.value === exportType);
-    if (!selected) {
-      toast.error("Selecciona un bloque de exportacion");
-      return;
-    }
-
-    try {
-      await runWithProgress(async () => {
-        const params = {
-          fechaDesde: toApiLocalDateTime(fechaDesde),
-          fechaHasta: toApiLocalDateTime(fechaHasta),
-          granularidad: normalizarGranularidadPdf(granularidad),
-        };
-
-        const response = await exportarCancelacionesPdf(params);
-
-        const professionalName = buildProfessionalReportFileName({
-          modulo: "reportes",
-          tipoReporte: selected.tipoReporte,
-          extension: selected.extension,
-        });
-
-        triggerFileDownload(response.blob, professionalName || response.fileName);
-      });
-
-      setIsExportOpen(false);
-      toast.success("Exportacion completada");
-    } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo exportar el reporte seleccionado");
-      toast.error(message);
-    }
-  };
-
   return (
     <ReportesPageShell
       title="Reportes de Reservas"
       subtitle="Vista compacta de estados, cancelaciones y reservas proximas."
-      actions={(
-        <Button
-          size="sm"
-          className="bg-slate-900 text-white hover:bg-slate-800"
-          onClick={() => setIsExportOpen(true)}
-          disabled={loading}
-        >
-          Exportar reportes
-        </Button>
-      )}
+      actions={null}
     >
-      <ReportesExportDialog
-        open={isExportOpen}
-        onOpenChange={setIsExportOpen}
-        title="Exportacion avanzada de reservas"
-        description="Genera PDF profesional de cancelaciones con el rango de fechas seleccionado."
-        options={RESERVAS_EXPORT_OPTIONS}
-        value={exportType}
-        onValueChange={setExportType}
-        onExport={exportarReporte}
-        exporting={exporting}
-        progress={progress}
-      />
-
       <ReportesContextBar
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}

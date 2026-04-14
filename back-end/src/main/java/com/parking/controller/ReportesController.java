@@ -4,10 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -353,100 +350,4 @@ public class ReportesController {
         return ResponseEntity.ok(reportesService.obtenerTiempoPromedioOcupacionPorTipo(fechaDesde, fechaHasta));
     }
 
-    @GetMapping("/export/csv/tickets")
-    public ResponseEntity<ByteArrayResource> exportarTicketsCsv(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        String fileName = reportesService.construirNombreArchivoCsv("tickets");
-        byte[] data = reportesService.exportarTicketsEnRangoCsv(fechaDesde, fechaHasta);
-        return construirRespuestaCsv(fileName, data);
-    }
-
-    @GetMapping("/export/csv/reservas")
-    public ResponseEntity<ByteArrayResource> exportarReservasCsv(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        String fileName = reportesService.construirNombreArchivoCsv("reservas");
-        byte[] data = reportesService.exportarReservasEnRangoCsv(fechaDesde, fechaHasta);
-        return construirRespuestaCsv(fileName, data);
-    }
-
-    @GetMapping("/export/csv/cancelaciones")
-    public ResponseEntity<ByteArrayResource> exportarCancelacionesCsv(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta) {
-        String fileName = reportesService.construirNombreArchivoCsv("cancelaciones_reservas");
-        byte[] data = reportesService.exportarCancelacionesConMotivoCsv(fechaDesde, fechaHasta);
-        return construirRespuestaCsv(fileName, data);
-    }
-
-    @GetMapping("/export/pdf/resumen-operativo-diario")
-    public ResponseEntity<ByteArrayResource> exportarResumenOperativoDiarioPdf(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) String granularidad) {
-        String fileName = reportesService.construirNombreArchivoPdf("resumen_operativo");
-        byte[] data = reportesService.exportarResumenOperativoDiarioPdf(fechaDesde, fechaHasta, granularidad);
-        return construirRespuestaPdf(fileName, data);
-    }
-
-    @GetMapping("/export/pdf/cancelaciones")
-    public ResponseEntity<ByteArrayResource> exportarCancelacionesPdf(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) String granularidad) {
-        String fileName = reportesService.construirNombreArchivoPdf("cancelaciones_reservas");
-        byte[] data = reportesService.exportarCancelacionesConMotivoPdf(fechaDesde, fechaHasta, granularidad);
-        return construirRespuestaPdf(fileName, data);
-    }
-
-    @GetMapping("/export/csv/operativos-avanzado")
-    public ResponseEntity<ByteArrayResource> exportarOperativosAvanzadoCsv(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) Long usuarioId,
-            @RequestParam(required = false) String tipoVehiculo) {
-        String fileName = reportesService.construirNombreArchivoEstandar("reportes", "operativos_avanzado", "csv");
-        byte[] data = reportesService.exportarOperativosAvanzadoCsv(fechaDesde, fechaHasta, usuarioId, tipoVehiculo);
-        return construirRespuestaCsv(fileName, data);
-    }
-
-    @GetMapping("/export/csv/financieros-avanzado")
-    public ResponseEntity<ByteArrayResource> exportarFinancierosAvanzadoCsv(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) Long usuarioId,
-            @RequestParam(required = false) String tipoVehiculo) {
-        String fileName = reportesService.construirNombreArchivoEstandar("reportes", "financieros_avanzado", "csv");
-        byte[] data = reportesService.exportarFinancierosAvanzadoCsv(fechaDesde, fechaHasta, usuarioId, tipoVehiculo);
-        return construirRespuestaCsv(fileName, data);
-    }
-
-    @GetMapping("/export/pdf/resumen-ejecutivo")
-    public ResponseEntity<ByteArrayResource> exportarResumenEjecutivoPdf(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) Long usuarioId,
-            @RequestParam(required = false) String tipoVehiculo,
-            @RequestParam(required = false) String granularidad) {
-        String fileName = reportesService.construirNombreArchivoEstandar("reportes", "resumen_ejecutivo", "pdf");
-        byte[] data = reportesService.exportarResumenEjecutivoPdf(fechaDesde, fechaHasta, usuarioId, tipoVehiculo, granularidad);
-        return construirRespuestaPdf(fileName, data);
-    }
-
-    private ResponseEntity<ByteArrayResource> construirRespuestaCsv(String fileName, byte[] data) {
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                .contentLength(data.length)
-                .body(new ByteArrayResource(data));
-    }
-
-    private ResponseEntity<ByteArrayResource> construirRespuestaPdf(String fileName, byte[] data) {
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
-                .contentLength(data.length)
-                .body(new ByteArrayResource(data));
-    }
 }

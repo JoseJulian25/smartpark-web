@@ -14,7 +14,6 @@ import {
 } from "recharts";
 
 import {
-  exportarResumenEjecutivoPdf,
   getIngresosPorMetodoPago,
   getIngresosPorPeriodo,
   getIngresosPorTipoVehiculoFinanciero,
@@ -26,13 +25,9 @@ import {
   transformTopNToChart,
 } from "../../api/reportes";
 import { getUsuarios } from "../../api/usuarios";
-import { ReportesExportDialog } from "../../components/reportes/ReportesExportDialog";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
-import { Button } from "../../components/ui/button";
-import { useExportProgress } from "../../hooks/reportes/useExportProgress";
-import { buildProfessionalReportFileName, triggerFileDownload } from "../../lib/download";
 import {
   Table,
   TableBody,
@@ -126,15 +121,6 @@ const tableRowsFromResponse = (response = {}, labelKey, valueKey) => {
   }));
 };
 
-const FINANCIEROS_EXPORT_OPTIONS = [
-  {
-    value: "pdf_resumen_ejecutivo",
-    label: "PDF resumen ejecutivo",
-    extension: "pdf",
-    tipoReporte: "financieros_resumen_ejecutivo",
-  },
-];
-
 export const ReportesFinancierosPage = () => {
   const [fechaDesde, setFechaDesde] = useState(startOfTodayInput());
   const [fechaHasta, setFechaHasta] = useState(nowInput());
@@ -153,10 +139,6 @@ export const ReportesFinancierosPage = () => {
   const [ingresosTipoVehiculo, setIngresosTipoVehiculo] = useState([]);
   const [ingresosMetodoPago, setIngresosMetodoPago] = useState([]);
   const [rankingHorasPico, setRankingHorasPico] = useState([]);
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportType, setExportType] = useState("pdf_resumen_ejecutivo");
-
-  const { exporting, progress, runWithProgress } = useExportProgress();
 
   const cargarDatos = async () => {
     try {
@@ -260,41 +242,6 @@ export const ReportesFinancierosPage = () => {
     setUsuarioSeleccionado("TODOS");
   };
 
-  const exportarReporte = async () => {
-    const selected = FINANCIEROS_EXPORT_OPTIONS.find((option) => option.value === exportType);
-    if (!selected) {
-      toast.error("Selecciona un bloque de exportacion");
-      return;
-    }
-
-    try {
-      await runWithProgress(async () => {
-        const params = {
-          fechaDesde: toApiLocalDateTime(fechaDesde),
-          fechaHasta: toApiLocalDateTime(fechaHasta),
-          granularidad: normalizarGranularidadFinanciera(granularidad),
-          usuarioId: usuarioSeleccionado !== "TODOS" ? Number(usuarioSeleccionado) : undefined,
-        };
-
-        const response = await exportarResumenEjecutivoPdf(params);
-
-        const professionalName = buildProfessionalReportFileName({
-          modulo: "reportes",
-          tipoReporte: selected.tipoReporte,
-          extension: selected.extension,
-        });
-
-        triggerFileDownload(response.blob, professionalName || response.fileName);
-      });
-
-      setIsExportOpen(false);
-      toast.success("Exportacion completada");
-    } catch (error) {
-      const message = await getReportesErrorMessage(error, "No se pudo exportar el reporte financiero");
-      toast.error(message);
-    }
-  };
-
   const colorVariacion = variacionPeriodoAnterior > 0
     ? "text-emerald-700"
     : variacionPeriodoAnterior < 0
@@ -305,30 +252,7 @@ export const ReportesFinancierosPage = () => {
     <ReportesPageShell
       title="Reportes Financieros"
       subtitle="KPIs financieros, tendencia de ingresos y detalle por tipo de vehiculo y metodo de pago."
-      actions={(
-        <Button
-          size="sm"
-          className="bg-slate-900 text-white hover:bg-slate-800"
-          onClick={() => setIsExportOpen(true)}
-          disabled={loading}
-        >
-          Exportar reportes
-        </Button>
-      )}
     >
-      <ReportesExportDialog
-        open={isExportOpen}
-        onOpenChange={setIsExportOpen}
-        title="Exportacion avanzada financiera"
-        description="Genera PDF ejecutivo profesional con los filtros actuales."
-        options={FINANCIEROS_EXPORT_OPTIONS}
-        value={exportType}
-        onValueChange={setExportType}
-        onExport={exportarReporte}
-        exporting={exporting}
-        progress={progress}
-      />
-
       <ReportesContextBar
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}

@@ -17,35 +17,6 @@ const toNumber = (value) => {
 
 const NO_TIMEOUT_CONFIG = { timeout: 0 };
 
-const parseFileNameFromDisposition = (contentDisposition, fallback) => {
-  if (!contentDisposition) return fallback;
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
-
-  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  if (plainMatch?.[1]) return plainMatch[1];
-
-  return fallback;
-};
-
-const downloadBinary = async (url, fallbackFileName, params = {}) => {
-  const response = await client.get(url, {
-    params: buildParams(params),
-    responseType: "blob",
-  });
-
-  const fileName = parseFileNameFromDisposition(
-    response.headers?.["content-disposition"],
-    fallbackFileName
-  );
-
-  return {
-    fileName,
-    blob: response.data,
-  };
-};
-
 export const getReportesBootstrap = async () => {
   const { data } = await client.get("/reportes/bootstrap");
   return data;
@@ -341,82 +312,6 @@ export const getConsultasPorRangoMontos = async (params = {}) => {
     params: buildParams(params),
   });
   return data;
-};
-
-export const exportarTicketsCsv = async (params = {}) => {
-  return downloadBinary("/reportes/export/csv/tickets", "tickets.csv", params);
-};
-
-export const exportarReservasCsv = async (params = {}) => {
-  return downloadBinary("/reportes/export/csv/reservas", "reservas.csv", params);
-};
-
-export const exportarCancelacionesCsv = async (params = {}) => {
-  return downloadBinary(
-    "/reportes/export/csv/cancelaciones",
-    "cancelaciones_reservas.csv",
-    params
-  );
-};
-
-export const exportarResumenOperativoPdf = async (params = {}) => {
-  return downloadBinary(
-    "/reportes/export/pdf/resumen-operativo-diario",
-    "resumen_operativo.pdf",
-    buildParams(params)
-  );
-};
-
-export const exportarCancelacionesPdf = async (params = {}) => {
-  return downloadBinary(
-    "/reportes/export/pdf/cancelaciones",
-    "cancelaciones_reservas.pdf",
-    params
-  );
-};
-
-export const exportarOperativosAvanzadoCsv = async (params = {}) => {
-  return downloadBinary(
-    "/reportes/export/csv/operativos-avanzado",
-    "reportes_operativos_avanzado.csv",
-    params
-  );
-};
-
-export const exportarFinancierosAvanzadoCsv = async (params = {}) => {
-  const response = await client.get("/reportes/export/csv/financieros-avanzado", {
-    params: buildParams(params),
-    responseType: "blob",
-    ...NO_TIMEOUT_CONFIG,
-  });
-
-  const fileName = parseFileNameFromDisposition(
-    response.headers?.["content-disposition"],
-    "reportes_financieros_avanzado.csv"
-  );
-
-  return {
-    fileName,
-    blob: response.data,
-  };
-};
-
-export const exportarResumenEjecutivoPdf = async (params = {}) => {
-  const response = await client.get("/reportes/export/pdf/resumen-ejecutivo", {
-    params: buildParams(params),
-    responseType: "blob",
-    ...NO_TIMEOUT_CONFIG,
-  });
-
-  const fileName = parseFileNameFromDisposition(
-    response.headers?.["content-disposition"],
-    "reportes_resumen_ejecutivo.pdf"
-  );
-
-  return {
-    fileName,
-    blob: response.data,
-  };
 };
 
 export const transformSerieTemporalToChart = (response = {}) => {
