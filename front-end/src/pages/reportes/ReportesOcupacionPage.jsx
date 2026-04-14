@@ -13,9 +13,9 @@ import {
 
 import {
   getTendenciaUsoPorEspacio,
-  getReportesErrorMessage,
   getUtilizacionPorEspacio,
-} from "../../api/reportes";
+} from "../../api/reportesOcupacion";
+import { getReportesErrorMessage } from "../../api/reportesUtils";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";

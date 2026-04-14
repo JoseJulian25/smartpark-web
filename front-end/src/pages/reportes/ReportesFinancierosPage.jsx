@@ -19,11 +19,13 @@ import {
   getIngresosPorTipoVehiculoFinanciero,
   getPromediosFinancieros,
   getRankingHorasPicoPorIngreso,
+} from "../../api/reportesFinancieros";
+import {
   getReportesErrorMessage,
   transformIndicadoresFinancieros,
   transformSerieTemporalToChart,
   transformTopNToChart,
-} from "../../api/reportes";
+} from "../../api/reportesUtils";
 import { getUsuarios } from "../../api/usuarios";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";

@@ -11,8 +11,8 @@ import {
   getConsultasReservasPorFecha,
   getConsultasTicketsPorFecha,
   getConsultasVehiculosPorFecha,
-  getReportesErrorMessage,
-} from "../../api/reportes";
+} from "../../api/reportesConsultas";
+import { getReportesErrorMessage } from "../../api/reportesUtils";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
 import { Button } from "../../components/ui/button";

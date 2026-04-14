@@ -13,10 +13,10 @@ import {
 
 import {
   getCancelacionesDetalleReporte,
-  getReportesErrorMessage,
   getReservasPorEstadoReporte,
   getReservasProximasReporte,
-} from "../../api/reportes";
+} from "../../api/reportesReservas";
+import { getReportesErrorMessage } from "../../api/reportesUtils";
 import { getUsuarios } from "../../api/usuarios";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesFetchState } from "../../components/reportes/ReportesFetchState";
