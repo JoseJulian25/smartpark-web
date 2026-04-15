@@ -5,8 +5,11 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { registrarEntradaVehiculo } from "../api/entradas";
+import { getEmpresa } from "../api/empresa";
 import { getEspacios } from "../api/espacios";
 import { getResumenSalidaPorEspacio, procesarCobroSalida } from "../api/salidas";
+import { abrirTicketEntradaPdf } from "../components/entradas/ticketEntradaPdf";
+import { abrirFacturaCobroPdf } from "../components/salidas/facturaCobroPdf";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -74,6 +77,43 @@ export const EntradaPage = () => {
 
   const [loading, setLoading] = useState(false);
   const [loadingRegistro, setLoadingRegistro] = useState(false);
+  const [empresaTicket, setEmpresaTicket] = useState({ nombre: "", telefono: "" });
+
+  const fetchEmpresaTicket = async () => {
+    try {
+      const empresa = await getEmpresa();
+      setEmpresaTicket({
+        nombre: empresa?.nombre || "",
+        telefono: empresa?.telefono || ""
+      });
+    } catch (error) {
+      if (error?.response?.status !== 404) {
+        console.error("Error cargando informacion de empresa para ticket:", error);
+      }
+    }
+  };
+
+  const exportarTicketPdf = (ticketData) => {
+    const result = abrirTicketEntradaPdf({
+      ticketData,
+      empresaTicket
+    });
+
+    if (!result.opened && result.reason === "popup-blocked") {
+      toast.error("El navegador bloqueó la apertura del visor PDF. Habilite pop-ups para este sitio.");
+    }
+  };
+
+  const exportarFacturaCobroPdf = (cobroData) => {
+    const result = abrirFacturaCobroPdf({
+      cobroData,
+      empresaTicket
+    });
+
+    if (!result.opened && result.reason === "popup-blocked") {
+      toast.error("El navegador bloqueó la apertura de la factura PDF. Habilite pop-ups para este sitio.");
+    }
+  };
 
   const fetchEspacios = async (showErrorToast = false) => {
     try {
@@ -122,6 +162,7 @@ export const EntradaPage = () => {
       setTicketRegistrado(ticket);
       setPlaca("");
       setEspacioSeleccionadoId(null);
+      exportarTicketPdf(ticket);
       toast.success("Entrada registrada correctamente");
       await fetchEspacios(false);
     } catch (error) {
@@ -193,6 +234,7 @@ export const EntradaPage = () => {
       });
 
       setCobroProcesado(response);
+      exportarFacturaCobroPdf(response);
       toast.success("Salida y cobro registrados correctamente");
       setOpenDetalleDialog(false);
       await fetchEspacios(false);
@@ -213,6 +255,7 @@ export const EntradaPage = () => {
 
   useEffect(() => {
     fetchEspacios(true);
+    fetchEmpresaTicket();
   }, []);
 
   useEffect(() => {
