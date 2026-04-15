@@ -523,7 +523,7 @@ export const UsuariosPage = () => {
                   id="nombre"
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Juan Pérez"
+                  placeholder="Marlin Martinez"
                 />
               </div>
 

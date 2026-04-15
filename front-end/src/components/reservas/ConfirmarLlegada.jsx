@@ -164,7 +164,7 @@ export default function ConfirmarLlegada({ onSuccess }) {
         </div>
 
         {reserva && (
-          <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+          <div className="rounded-md border bg-white p-3 shadow-sm space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-medium">{reserva.codigoReserva}</div>
               <Badge variant="outline" className={getEstadoStyle(reserva.estado)}>

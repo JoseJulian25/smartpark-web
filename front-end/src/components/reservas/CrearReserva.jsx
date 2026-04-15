@@ -196,7 +196,7 @@ export default function CrearReserva({ onSuccess }) {
         onSubmit={handleSubmit}
         className="space-y-4"
       >
-            <div className="rounded-md border p-3 space-y-3">
+            <div className="rounded-md border bg-white p-3 shadow-sm space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Datos del cliente
               </p>
@@ -245,7 +245,7 @@ export default function CrearReserva({ onSuccess }) {
               </div>
             </div>
 
-            <div className="rounded-md border p-3 space-y-3">
+            <div className="rounded-md border bg-white p-3 shadow-sm space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Vehiculo y parqueo
               </p>
@@ -324,7 +324,7 @@ export default function CrearReserva({ onSuccess }) {
               </div>
             </div>
 
-            <div className="rounded-md border p-3 space-y-3">
+            <div className="rounded-md border bg-white p-3 shadow-sm space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Programacion
               </p>
