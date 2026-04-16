@@ -207,7 +207,8 @@ public class EspacioService {
             ticketActivoDTO = new TicketActivoDTO(
                     ticketActivo.getCodigoTicket(),
                     ticketActivo.getPlaca(),
-                    ticketActivo.getHoraEntrada().format(HORA_FORMATTER)
+                    ticketActivo.getHoraEntrada().format(HORA_FORMATTER),
+                    ticketActivo.getHoraEntrada()
             );
         }
 

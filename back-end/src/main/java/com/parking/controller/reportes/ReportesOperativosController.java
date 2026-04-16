@@ -27,28 +27,32 @@ public class ReportesOperativosController {
     public ResponseEntity<ReporteSerieTemporalResponseDTO> entradasPorHora(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) Long usuarioId) {
-        return ResponseEntity.ok(operativosReportService.obtenerEntradasPorHora(fechaDesde, fechaHasta, usuarioId));
+            @RequestParam(required = false) Long usuarioId,
+            @RequestParam(required = false) String tipoVehiculo) {
+        return ResponseEntity.ok(operativosReportService.obtenerEntradasPorHora(fechaDesde, fechaHasta, usuarioId, tipoVehiculo));
     }
 
     @GetMapping("/salidas-por-hora")
     public ResponseEntity<ReporteSerieTemporalResponseDTO> salidasPorHora(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fechaHasta,
-            @RequestParam(required = false) Long usuarioId) {
-        return ResponseEntity.ok(operativosReportService.obtenerSalidasPorHora(fechaDesde, fechaHasta, usuarioId));
+            @RequestParam(required = false) Long usuarioId,
+            @RequestParam(required = false) String tipoVehiculo) {
+        return ResponseEntity.ok(operativosReportService.obtenerSalidasPorHora(fechaDesde, fechaHasta, usuarioId, tipoVehiculo));
     }
 
     @GetMapping("/tickets-activos")
     public ResponseEntity<ReporteTablaResponseDTO> ticketsActivos(
-            @RequestParam(required = false) Long usuarioId) {
-        return ResponseEntity.ok(operativosReportService.obtenerTicketsActivosActuales(usuarioId));
+            @RequestParam(required = false) Long usuarioId,
+            @RequestParam(required = false) String tipoVehiculo) {
+        return ResponseEntity.ok(operativosReportService.obtenerTicketsActivosActuales(usuarioId, tipoVehiculo));
     }
 
     @GetMapping("/estadias-largas")
     public ResponseEntity<ReporteTablaResponseDTO> estadiasLargas(
             @RequestParam(required = false) Integer umbralMinutos,
-            @RequestParam(required = false) Long usuarioId) {
-        return ResponseEntity.ok(operativosReportService.obtenerEstadiasLargas(umbralMinutos, usuarioId));
+            @RequestParam(required = false) Long usuarioId,
+            @RequestParam(required = false) String tipoVehiculo) {
+        return ResponseEntity.ok(operativosReportService.obtenerEstadiasLargas(umbralMinutos, usuarioId, tipoVehiculo));
     }
 }

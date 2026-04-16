@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -37,11 +38,14 @@ public class OperativosReportService {
     }
 
     @Transactional(readOnly = true)
-    public ReporteSerieTemporalResponseDTO obtenerEntradasPorHora(LocalDateTime fechaDesde, LocalDateTime fechaHasta, Long usuarioId) {
+    public ReporteSerieTemporalResponseDTO obtenerEntradasPorHora(LocalDateTime fechaDesde, LocalDateTime fechaHasta, Long usuarioId, String tipoVehiculo) {
         RangoFechas rango = commonService.resolverRango(fechaDesde, fechaHasta, MAX_RANGE_DIAS);
-        List<Ticket> tickets = filtrarPorUsuario(ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
+        List<Ticket> tickets = filtrarPorUsuarioYTipo(
+            ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
                 rango.fechaDesde(),
-                rango.fechaHasta()), usuarioId);
+                rango.fechaHasta()),
+            usuarioId,
+            tipoVehiculo);
 
         return construirSeriePorHora(
                 tickets,
@@ -51,11 +55,14 @@ public class OperativosReportService {
     }
 
     @Transactional(readOnly = true)
-    public ReporteSerieTemporalResponseDTO obtenerSalidasPorHora(LocalDateTime fechaDesde, LocalDateTime fechaHasta, Long usuarioId) {
+    public ReporteSerieTemporalResponseDTO obtenerSalidasPorHora(LocalDateTime fechaDesde, LocalDateTime fechaHasta, Long usuarioId, String tipoVehiculo) {
         RangoFechas rango = commonService.resolverRango(fechaDesde, fechaHasta, MAX_RANGE_DIAS);
-        List<Ticket> tickets = filtrarPorUsuario(ticketRepository.findAllByHoraSalidaGreaterThanEqualAndHoraSalidaLessThan(
+        List<Ticket> tickets = filtrarPorUsuarioYTipo(
+            ticketRepository.findAllByHoraSalidaGreaterThanEqualAndHoraSalidaLessThan(
                 rango.fechaDesde(),
-                rango.fechaHasta()), usuarioId);
+                rango.fechaHasta()),
+            usuarioId,
+            tipoVehiculo);
 
         return construirSeriePorHora(
                 tickets,
@@ -65,8 +72,8 @@ public class OperativosReportService {
     }
 
     @Transactional(readOnly = true)
-    public ReporteTablaResponseDTO obtenerTicketsActivosActuales(Long usuarioId) {
-        List<Ticket> activos = filtrarPorUsuario(ticketRepository.findAll(), usuarioId).stream()
+    public ReporteTablaResponseDTO obtenerTicketsActivosActuales(Long usuarioId, String tipoVehiculo) {
+        List<Ticket> activos = filtrarPorUsuarioYTipo(ticketRepository.findAll(), usuarioId, tipoVehiculo).stream()
                 .filter(ticket -> ticket.getEstado() != null)
                 .filter(ticket -> ESTADO_TICKET_ACTIVO.equalsIgnoreCase(ticket.getEstado().getNombre()))
                 .sorted((a, b) -> {
@@ -82,7 +89,9 @@ public class OperativosReportService {
                     Map<String, String> row = new LinkedHashMap<>();
                     row.put("codigoTicket", ticket.getCodigoTicket());
                     row.put("placa", ticket.getPlaca());
-                    row.put("tipoVehiculo", ticket.getTipoVehiculo().getNombre());
+                        row.put("tipoVehiculo", ticket.getTipoVehiculo() == null || ticket.getTipoVehiculo().getNombre() == null
+                            ? "-"
+                            : ticket.getTipoVehiculo().getNombre());
                     row.put("codigoEspacio", ticket.getEspacio().getCodigoEspacio());
                     row.put("usuario", obtenerEtiquetaUsuario(ticket));
                     row.put("horaEntrada", commonService.formatDateTime(ticket.getHoraEntrada()));
@@ -99,11 +108,11 @@ public class OperativosReportService {
     }
 
     @Transactional(readOnly = true)
-    public ReporteTablaResponseDTO obtenerEstadiasLargas(Integer umbralMinutos, Long usuarioId) {
+    public ReporteTablaResponseDTO obtenerEstadiasLargas(Integer umbralMinutos, Long usuarioId, String tipoVehiculo) {
         int umbral = umbralMinutos == null || umbralMinutos < 1 ? 360 : umbralMinutos;
         LocalDateTime now = LocalDateTime.now();
 
-        List<Ticket> activos = filtrarPorUsuario(ticketRepository.findAll(), usuarioId).stream()
+        List<Ticket> activos = filtrarPorUsuarioYTipo(ticketRepository.findAll(), usuarioId, tipoVehiculo).stream()
                 .filter(ticket -> ticket.getEstado() != null)
                 .filter(ticket -> ESTADO_TICKET_ACTIVO.equalsIgnoreCase(ticket.getEstado().getNombre()))
                 .sorted((a, b) -> {
@@ -170,6 +179,32 @@ public class OperativosReportService {
                 .filter(ticket -> ticket.getCreadoPor().getId() != null)
                 .filter(ticket -> usuarioId.equals(ticket.getCreadoPor().getId()))
                 .toList();
+    }
+
+    private List<Ticket> filtrarPorUsuarioYTipo(List<Ticket> tickets, Long usuarioId, String tipoVehiculo) {
+        String tipoNormalizado = normalizarTipo(tipoVehiculo);
+        return filtrarPorUsuario(tickets, usuarioId).stream()
+                .filter(ticket -> {
+                    if (tipoNormalizado == null) {
+                        return true;
+                    }
+                    if (ticket.getTipoVehiculo() == null || ticket.getTipoVehiculo().getNombre() == null) {
+                        return false;
+                    }
+                    return tipoNormalizado.equals(ticket.getTipoVehiculo().getNombre().toUpperCase(Locale.ROOT));
+                })
+                .toList();
+    }
+
+    private String normalizarTipo(String tipoVehiculo) {
+        if (tipoVehiculo == null) {
+            return null;
+        }
+        String value = tipoVehiculo.trim().toUpperCase(Locale.ROOT);
+        if (value.isEmpty() || "TODOS".equals(value)) {
+            return null;
+        }
+        return value;
     }
 
     private String obtenerEtiquetaUsuario(Ticket ticket) {

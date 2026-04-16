@@ -27,6 +27,14 @@ import { getEspacios } from "../api/espacios";
 import { getReservas } from "../api/reservas";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
 
 const getErrorMessage = (error, fallback) => {
   return error?.response?.data?.message || error?.message || fallback;
@@ -41,6 +49,26 @@ const formatDateTime = (value) => {
     dateStyle: "short",
     timeStyle: "short"
   }).format(parsed);
+};
+
+const getTicketEntradaDate = (ticketActivo) => {
+  if (!ticketActivo) return null;
+
+  const fullDateValue = ticketActivo.fechaHoraEntrada;
+  if (fullDateValue) {
+    const parsed = new Date(fullDateValue);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+
+  const horaEntrada = ticketActivo.horaEntrada;
+  if (!horaEntrada) return null;
+
+  const [hour, minute] = String(horaEntrada).split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+  const fallback = new Date();
+  fallback.setHours(hour, minute, 0, 0);
+  return fallback;
 };
 
 export const DashboardPage = () => {
@@ -130,8 +158,7 @@ export const DashboardPage = () => {
         const timestamp = new Date(reserva.horaInicio).getTime();
         return !Number.isNaN(timestamp) && timestamp >= now && timestamp <= thirtyMinutesAhead;
       })
-      .sort((a, b) => new Date(a.horaInicio).getTime() - new Date(b.horaInicio).getTime())
-      .slice(0, 5);
+      .sort((a, b) => new Date(a.horaInicio).getTime() - new Date(b.horaInicio).getTime());
   }, [reservas]);
 
   const estadiasLargas = useMemo(() => {
@@ -139,13 +166,8 @@ export const DashboardPage = () => {
     return espacios
       .filter((space) => space.ticketActivo?.horaEntrada)
       .map((space) => {
-        const [hour, minute] = String(space.ticketActivo.horaEntrada).split(":").map(Number);
-        const start = new Date();
-        if (!Number.isNaN(hour)) start.setHours(hour);
-        if (!Number.isNaN(minute)) start.setMinutes(minute);
-        start.setSeconds(0);
-        start.setMilliseconds(0);
-        const minutes = Math.max(0, Math.floor((now - start.getTime()) / 60000));
+        const fechaEntrada = getTicketEntradaDate(space.ticketActivo);
+        const minutes = fechaEntrada ? Math.max(0, Math.floor((now - fechaEntrada.getTime()) / 60000)) : 0;
         return {
           codigoEspacio: space.codigoEspacio,
           placa: space.ticketActivo.placa,
@@ -153,9 +175,33 @@ export const DashboardPage = () => {
         };
       })
       .filter((item) => item.minutos >= 360)
-      .sort((a, b) => b.minutos - a.minutos)
-      .slice(0, 3);
+      .sort((a, b) => b.minutos - a.minutos);
   }, [espacios]);
+
+  const alertasOperativas = useMemo(() => {
+    const alertasReservas = reservasPendientesProximas.map((item) => ({
+      tipo: "Reserva proxima",
+      referencia: `${item.codigoReserva || "-"} · ${item.placa || "-"}`,
+      detalle: "Reserva pendiente por iniciar",
+      tiempo: formatDateTime(item.horaInicio),
+      ordenGrupo: 0,
+      ordenValor: new Date(item.horaInicio).getTime(),
+    }));
+
+    const alertasEstadias = estadiasLargas.map((item) => ({
+      tipo: "Estadia larga",
+      referencia: `${item.codigoEspacio || "-"} · ${item.placa || "-"}`,
+      detalle: "Vehiculo con permanencia extensa",
+      tiempo: `${Math.floor(item.minutos / 60)}h ${item.minutos % 60}m`,
+      ordenGrupo: 1,
+      ordenValor: item.minutos,
+    }));
+
+    return [...alertasReservas, ...alertasEstadias].sort((a, b) => {
+      if (a.ordenGrupo !== b.ordenGrupo) return a.ordenGrupo - b.ordenGrupo;
+      return a.ordenGrupo === 0 ? a.ordenValor - b.ordenValor : b.ordenValor - a.ordenValor;
+    });
+  }, [reservasPendientesProximas, estadiasLargas]);
 
   const lineChartData = useMemo(() => {
     return (Array.isArray(movimientosHora) ? movimientosHora : []).map((item) => ({
@@ -165,12 +211,26 @@ export const DashboardPage = () => {
     }));
   }, [movimientosHora]);
 
+  const estadoRapido = useMemo(() => {
+    const totalEntradas = lineChartData.reduce((sum, item) => sum + Number(item.entradas || 0), 0);
+    const totalSalidas = lineChartData.reduce((sum, item) => sum + Number(item.salidas || 0), 0);
+    const flujoNeto = totalEntradas - totalSalidas;
+
+    const proximaReserva = reservasPendientesProximas[0] || null;
+    const estadiaMasLarga = estadiasLargas[0] || null;
+
+    return {
+      flujoNeto,
+      proximaReserva,
+      estadiaMasLarga
+    };
+  }, [lineChartData, reservasPendientesProximas, estadiasLargas]);
+
   return (
-    <div className="space-y-5 max-w-6xl">
+    <div className="space-y-3 max-w-6xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard Operativo</h1>
-          <p className="text-sm text-muted-foreground">Vista en tiempo real para operación, reservas y ocupación.</p>
+          <h1 className="text-lg font-semibold tracking-tight">Dashboard Operativo</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -182,27 +242,27 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
         <Card className="border-primary/20">
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">Ocupacion</p>
-            <p className="text-xl font-bold text-primary">{metrics.ocupacionPct}%</p>
+            <p className="text-lg font-bold text-primary">{metrics.ocupacionPct}%</p>
           </CardContent>
         </Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total espacios</p><p className="text-xl font-bold">{metrics.total}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Libres</p><p className="text-xl font-bold text-emerald-700">{metrics.libres}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Ocupados</p><p className="text-xl font-bold text-rose-700">{metrics.ocupados}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservados</p><p className="text-xl font-bold text-amber-700">{metrics.reservados}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservas pendientes</p><p className="text-xl font-bold">{metrics.pendientes}</p></CardContent></Card>
-        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservas activas</p><p className="text-xl font-bold">{metrics.activas}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Total espacios</p><p className="text-lg font-bold">{metrics.total}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Libres</p><p className="text-lg font-bold text-emerald-700">{metrics.libres}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Ocupados</p><p className="text-lg font-bold text-rose-700">{metrics.ocupados}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservados</p><p className="text-lg font-bold text-amber-700">{metrics.reservados}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservas pendientes</p><p className="text-lg font-bold">{metrics.pendientes}</p></CardContent></Card>
+        <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Reservas activas</p><p className="text-lg font-bold">{metrics.activas}</p></CardContent></Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-3">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-1">
             <CardTitle className="text-base">Registros de Entradas y Salidas (Hoy)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-4 text-xs">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full bg-primary" />
@@ -217,8 +277,8 @@ export const DashboardPage = () => {
             {!lineChartData.length ? (
               <p className="text-sm text-muted-foreground">No hay datos de movimientos para hoy.</p>
             ) : (
-              <div className="rounded-lg border bg-white/70 p-2">
-                <div className="h-64 w-full">
+              <div className="rounded-md border bg-white p-2">
+                <div className="h-56 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={lineChartData} margin={{ top: 16, right: 12, left: 0, bottom: 8 }}>
                       <CartesianGrid strokeDasharray="4 4" strokeOpacity={0.2} />
@@ -243,7 +303,7 @@ export const DashboardPage = () => {
                         dataKey="entradas"
                         name="Entradas"
                         stroke="hsl(var(--primary))"
-                        strokeWidth={3}
+                        strokeWidth={2.5}
                         dot={{ r: 2 }}
                         activeDot={{ r: 5 }}
                       />
@@ -252,7 +312,7 @@ export const DashboardPage = () => {
                         dataKey="salidas"
                         name="Salidas"
                         stroke="#f43f5e"
-                        strokeWidth={3}
+                        strokeWidth={2.5}
                         dot={{ r: 2 }}
                         activeDot={{ r: 5 }}
                       />
@@ -279,15 +339,15 @@ export const DashboardPage = () => {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-1">
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 Ocupacion por tipo
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
+            <CardContent className="space-y-3 text-sm">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2"><Car className="h-4 w-4" />Carros</span>
@@ -311,53 +371,87 @@ export const DashboardPage = () => {
           </Card>
 
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                Alertas operativas
-              </CardTitle>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-base">Estado rapido</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div>
-                <p className="font-medium flex items-center gap-2"><CalendarClock className="h-4 w-4" />Reservas proximas (30 min)</p>
-                {!reservasPendientesProximas.length ? (
-                  <p className="text-xs text-muted-foreground mt-1">Sin reservas proximas.</p>
+            <CardContent className="space-y-2 text-xs">
+              <div className="rounded-md border px-2 py-2">
+                <p className="text-muted-foreground">Flujo neto hoy</p>
+                <p className={`font-semibold ${estadoRapido.flujoNeto >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                  {estadoRapido.flujoNeto >= 0 ? "+" : ""}
+                  {estadoRapido.flujoNeto} vehiculos
+                </p>
+              </div>
+
+              <div className="rounded-md border px-2 py-2">
+                <p className="text-muted-foreground">Proxima reserva</p>
+                {estadoRapido.proximaReserva ? (
+                  <p className="font-medium">
+                    {formatDateTime(estadoRapido.proximaReserva.horaInicio)} · {estadoRapido.proximaReserva.placa || "-"}
+                  </p>
                 ) : (
-                  <div className="mt-2 space-y-1">
-                    {reservasPendientesProximas.map((item) => (
-                      <div key={item.codigoReserva} className="rounded-md border px-2 py-1 text-xs flex items-center justify-between">
-                        <span>{item.codigoReserva} · {item.placa}</span>
-                        <span className="text-muted-foreground">{formatDateTime(item.horaInicio)}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="font-medium">Sin reservas proximas</p>
                 )}
               </div>
 
-              <div>
-                <p className="font-medium flex items-center gap-2"><Clock3 className="h-4 w-4" />Estadias largas (&gt; 6h)</p>
-                {!estadiasLargas.length ? (
-                  <p className="text-xs text-muted-foreground mt-1">Sin estadias largas detectadas.</p>
+              <div className="rounded-md border px-2 py-2">
+                <p className="text-muted-foreground">Estadia mas larga activa</p>
+                {estadoRapido.estadiaMasLarga ? (
+                  <p className="font-medium">
+                    {estadoRapido.estadiaMasLarga.codigoEspacio || "-"} · {estadoRapido.estadiaMasLarga.placa || "-"} · {Math.floor(estadoRapido.estadiaMasLarga.minutos / 60)}h {estadoRapido.estadiaMasLarga.minutos % 60}m
+                  </p>
                 ) : (
-                  <div className="mt-2 space-y-1">
-                    {estadiasLargas.map((item) => (
-                      <div key={`${item.codigoEspacio}-${item.placa}`} className="rounded-md border px-2 py-1 text-xs flex items-center justify-between">
-                        <span>{item.codigoEspacio} · {item.placa}</span>
-                        <span className="text-muted-foreground">{Math.floor(item.minutos / 60)}h {item.minutos % 60}m</span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="font-medium">Sin estadias largas</p>
                 )}
-              </div>
-
-              <div className="pt-1 flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => navigate("/entrada")}>Entradas/Salidas</Button>
-                <Button size="sm" variant="outline" onClick={() => navigate("/reservas")}>Reservas</Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            Alertas operativas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="h-9 px-2">Tipo</TableHead>
+                <TableHead className="h-9 px-2">Referencia</TableHead>
+                <TableHead className="h-9 px-2">Detalle</TableHead>
+                <TableHead className="h-9 px-2">Tiempo</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!alertasOperativas.length ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-6 text-center text-xs text-muted-foreground">
+                    Sin alertas operativas activas.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                alertasOperativas.map((alerta, idx) => (
+                  <TableRow key={`${alerta.tipo}-${alerta.referencia}-${idx}`}>
+                    <TableCell className="px-2 py-2 font-medium">{alerta.tipo}</TableCell>
+                    <TableCell className="px-2 py-2">{alerta.referencia}</TableCell>
+                    <TableCell className="px-2 py-2">{alerta.detalle}</TableCell>
+                    <TableCell className="px-2 py-2">{alerta.tiempo}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="pt-1 flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/entrada")}>Entradas/Salidas</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate("/reservas")}>Reservas</Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
