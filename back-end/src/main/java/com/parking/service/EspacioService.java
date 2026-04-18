@@ -256,10 +256,10 @@ public class EspacioService {
         ReservaActivaDTO reservaActivaDTO = null;
         if (reservaActiva != null && reservaActiva.getHoraInicio() != null) {
             reservaActivaDTO = new ReservaActivaDTO(
-                reserva.getCodigoReserva(),
-                reserva.getClienteNombreCompleto(),
-                reserva.getPlaca(),
-                reserva.getHoraInicio().format(HORA_FORMATTER)
+                reservaActiva.getCodigoReserva(),
+                reservaActiva.getClienteNombreCompleto(),
+                reservaActiva.getPlaca(),
+                reservaActiva.getHoraInicio().format(HORA_FORMATTER)
             );
         }
 
