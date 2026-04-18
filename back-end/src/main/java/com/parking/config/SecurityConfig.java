@@ -51,9 +51,9 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/test/hello").permitAll()
-                .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                 .requestMatchers(HttpMethod.GET, "/espacios").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
                 .requestMatchers(HttpMethod.GET, "/espacios/inactivos").hasAnyAuthority("ROLE_ADMIN", "ROLE_admin")
                 .requestMatchers(HttpMethod.PATCH, "/espacios/*/estado").hasAnyAuthority("ROLE_OPERADOR", "ROLE_operador", "ROLE_ADMIN", "ROLE_admin")
