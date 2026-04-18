@@ -16,7 +16,16 @@ import {
 import { getReportesErrorMessage } from "../../api/reportesUtils";
 import { ReportesContextBar } from "../../components/reportes/ReportesContextBar";
 import { ReportesPageShell } from "../../components/reportes/ReportesPageShell";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
@@ -57,6 +66,88 @@ const getTotalRegistros = (response) => {
   return Number.isFinite(total) ? total : 0;
 };
 
+const isEstadoColumn = (columnName) => String(columnName || "").toLowerCase().includes("estado");
+
+const getEstadoBadgeClassName = (estado) => {
+  const normalized = String(estado || "").trim().toUpperCase();
+  if (normalized === "ACTIVO") return "border-emerald-300 bg-emerald-50 text-emerald-700";
+  if (normalized === "CERRADO" || normalized === "FINALIZADA") return "border-slate-300 bg-slate-100 text-slate-700";
+  if (normalized === "ANULADO" || normalized === "CANCELADA") return "border-rose-300 bg-rose-50 text-rose-700";
+  if (normalized === "PENDIENTE") return "border-amber-300 bg-amber-50 text-amber-700";
+  return "border-slate-300 bg-slate-50 text-slate-700";
+};
+
+const renderCellValue = (columnName, value) => {
+  const rawValue = value || "-";
+  if (isEstadoColumn(columnName)) {
+    return (
+      <Badge variant="outline" className={`text-[11px] font-semibold ${getEstadoBadgeClassName(rawValue)}`}>
+        {rawValue}
+      </Badge>
+    );
+  }
+  return rawValue;
+};
+
+const toTablaPrincipalResponse = (response) => {
+  const filas = Array.isArray(response?.filas) ? response.filas : [];
+  const columnas = Array.isArray(response?.columnas) ? response.columnas : [];
+  const totalRegistros = Number(response?.totalRegistros);
+
+  return {
+    ...response,
+    columnas,
+    filas,
+    totalRegistros: Number.isFinite(totalRegistros) ? totalRegistros : filas.length,
+  };
+};
+
+const toVehiculoBusquedaTabla = (response) => {
+  const tickets = Array.isArray(response?.tickets?.filas) ? response.tickets.filas : [];
+  const reservas = Array.isArray(response?.reservas?.filas) ? response.reservas.filas : [];
+  const placa = String(response?.placa || "-");
+
+  const filasTickets = tickets.map((fila) => {
+    const c = fila?.columnas || {};
+    return {
+      columnas: {
+        registro: "Ticket",
+        placa,
+        codigo: c.codigoTicket || "-",
+        estado: c.estado || "-",
+        tipoVehiculo: c.tipoVehiculo || "-",
+        codigoEspacio: c.codigoEspacio || "-",
+        inicio: c.horaEntrada || "-",
+        fin: c.horaSalida || "-",
+      },
+    };
+  });
+
+  const filasReservas = reservas.map((fila) => {
+    const c = fila?.columnas || {};
+    return {
+      columnas: {
+        registro: "Reserva",
+        placa,
+        codigo: c.codigoReserva || "-",
+        estado: c.estado || "-",
+        tipoVehiculo: c.tipoVehiculo || "-",
+        codigoEspacio: c.codigoEspacio || "-",
+        inicio: c.horaInicio || "-",
+        fin: c.horaFin || "-",
+      },
+    };
+  });
+
+  const filas = [...filasTickets, ...filasReservas];
+  return {
+    titulo: `Historial por placa: ${placa}`,
+    columnas: ["registro", "placa", "codigo", "estado", "tipoVehiculo", "codigoEspacio", "inicio", "fin"],
+    filas,
+    totalRegistros: filas.length,
+  };
+};
+
 const renderTablaDinamica = (titulo, columnas = [], filas = [], options = {}) => {
   const showTotal = options.showTotal ?? true;
   return (
@@ -92,7 +183,7 @@ const renderTablaDinamica = (titulo, columnas = [], filas = [], options = {}) =>
                 <TableRow key={`row-${index}`}>
                   {columnas.map((columna) => (
                     <TableCell key={`${index}-${columna}`} className="px-2 py-2">
-                      {columnasFila[columna] || "-"}
+                      {renderCellValue(columna, columnasFila[columna])}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -135,17 +226,18 @@ export const ReportesConsultasPage = () => {
   const [reservasListado, setReservasListado] = useState(null);
   const [vehiculosListado, setVehiculosListado] = useState(null);
 
+  const [ticketBusquedaActiva, setTicketBusquedaActiva] = useState(false);
+  const [pagoBusquedaActiva, setPagoBusquedaActiva] = useState(false);
+  const [reservaBusquedaActiva, setReservaBusquedaActiva] = useState(false);
+  const [vehiculoBusquedaActiva, setVehiculoBusquedaActiva] = useState(false);
+
   const [codigoTicket, setCodigoTicket] = useState("");
-  const [ticketDetalle, setTicketDetalle] = useState(null);
 
   const [codigoPagoTicket, setCodigoPagoTicket] = useState("");
-  const [pagoDetalle, setPagoDetalle] = useState(null);
 
   const [codigoReserva, setCodigoReserva] = useState("");
-  const [reservaDetalle, setReservaDetalle] = useState(null);
 
   const [placaVehiculo, setPlacaVehiculo] = useState("");
-  const [vehiculoDetalle, setVehiculoDetalle] = useState(null);
 
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [loadingPagos, setLoadingPagos] = useState(false);
@@ -153,6 +245,8 @@ export const ReportesConsultasPage = () => {
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [loadingAnulacion, setLoadingAnulacion] = useState(false);
+  const [openAnularDialog, setOpenAnularDialog] = useState(false);
+  const [ticketPendienteAnulacion, setTicketPendienteAnulacion] = useState("");
 
   const baseParams = useMemo(
     () => ({
@@ -166,8 +260,9 @@ export const ReportesConsultasPage = () => {
     try {
       setLoadingTickets(true);
       const data = await getConsultasTicketsPorFecha({ ...baseParams, page, size: PAGE_SIZE });
-      setTicketsListado(data);
+      setTicketsListado(toTablaPrincipalResponse(data));
       setTicketsPage(page);
+      setTicketBusquedaActiva(false);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo cargar listado de tickets"));
     } finally {
@@ -179,8 +274,9 @@ export const ReportesConsultasPage = () => {
     try {
       setLoadingPagos(true);
       const data = await getConsultasPagosPorFecha({ ...baseParams, page, size: PAGE_SIZE });
-      setPagosListado(data);
+      setPagosListado(toTablaPrincipalResponse(data));
       setPagosPage(page);
+      setPagoBusquedaActiva(false);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo cargar listado de pagos"));
     } finally {
@@ -192,8 +288,9 @@ export const ReportesConsultasPage = () => {
     try {
       setLoadingReservas(true);
       const data = await getConsultasReservasPorFecha({ ...baseParams, page, size: PAGE_SIZE });
-      setReservasListado(data);
+      setReservasListado(toTablaPrincipalResponse(data));
       setReservasPage(page);
+      setReservaBusquedaActiva(false);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo cargar listado de reservas"));
     } finally {
@@ -205,8 +302,9 @@ export const ReportesConsultasPage = () => {
     try {
       setLoadingVehiculos(true);
       const data = await getConsultasVehiculosPorFecha({ ...baseParams, page, size: PAGE_SIZE });
-      setVehiculosListado(data);
+      setVehiculosListado(toTablaPrincipalResponse(data));
       setVehiculosPage(page);
+      setVehiculoBusquedaActiva(false);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo cargar listado de vehiculos"));
     } finally {
@@ -222,7 +320,10 @@ export const ReportesConsultasPage = () => {
     }
     try {
       setLoadingDetalle(true);
-      setTicketDetalle(await consultarPorTicket(value));
+      const response = await consultarPorTicket(value);
+      setTicketsListado(toTablaPrincipalResponse(response));
+      setTicketsPage(0);
+      setTicketBusquedaActiva(true);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo consultar ticket por codigo"));
     } finally {
@@ -237,7 +338,14 @@ export const ReportesConsultasPage = () => {
       return;
     }
 
-    if (!window.confirm(`Confirmas anular el ticket ${codigoNormalizado}?`)) {
+    setTicketPendienteAnulacion(codigoNormalizado);
+    setOpenAnularDialog(true);
+  };
+
+  const confirmarAnulacionTicket = async () => {
+    const codigoNormalizado = String(ticketPendienteAnulacion || "").trim();
+    if (!codigoNormalizado) {
+      setOpenAnularDialog(false);
       return;
     }
 
@@ -246,11 +354,13 @@ export const ReportesConsultasPage = () => {
       await anularTicket(codigoNormalizado);
       toast.success("Ticket anulado correctamente");
 
-      const refreshTasks = [cargarTicketsListado(ticketsPage)];
-      if (codigoTicket.trim().toUpperCase() === codigoNormalizado.toUpperCase()) {
-        refreshTasks.push(buscarTicketPorCodigo());
+      if (ticketBusquedaActiva && codigoTicket.trim()) {
+        await buscarTicketPorCodigo();
+      } else {
+        await cargarTicketsListado(ticketsPage);
       }
-      await Promise.all(refreshTasks);
+      setOpenAnularDialog(false);
+      setTicketPendienteAnulacion("");
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo anular el ticket"));
     } finally {
@@ -266,7 +376,10 @@ export const ReportesConsultasPage = () => {
     }
     try {
       setLoadingDetalle(true);
-      setPagoDetalle(await consultarPagoPorTicket(value));
+      const response = await consultarPagoPorTicket(value);
+      setPagosListado(toTablaPrincipalResponse(response));
+      setPagosPage(0);
+      setPagoBusquedaActiva(true);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo consultar pago por codigo"));
     } finally {
@@ -282,7 +395,10 @@ export const ReportesConsultasPage = () => {
     }
     try {
       setLoadingDetalle(true);
-      setReservaDetalle(await consultarPorReserva(value));
+      const response = await consultarPorReserva(value);
+      setReservasListado(toTablaPrincipalResponse(response));
+      setReservasPage(0);
+      setReservaBusquedaActiva(true);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo consultar reserva por codigo"));
     } finally {
@@ -298,7 +414,10 @@ export const ReportesConsultasPage = () => {
     }
     try {
       setLoadingDetalle(true);
-      setVehiculoDetalle(await consultarPorPlaca(value));
+      const response = await consultarPorPlaca(value);
+      setVehiculosListado(toVehiculoBusquedaTabla(response));
+      setVehiculosPage(0);
+      setVehiculoBusquedaActiva(true);
     } catch (error) {
       toast.error(await getReportesErrorMessage(error, "No se pudo consultar vehiculo por placa"));
     } finally {
@@ -345,6 +464,36 @@ export const ReportesConsultasPage = () => {
       title="Consultas"
       subtitle="Modulo profesional por secciones: Tickets, Pagos, Reservas y Vehiculo."
     >
+      <Dialog open={openAnularDialog} onOpenChange={setOpenAnularDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anular ticket</DialogTitle>
+            <DialogDescription>
+              Esta accion anulara el ticket {ticketPendienteAnulacion || "-"} y liberara su espacio.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (loadingAnulacion) return;
+                setOpenAnularDialog(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-rose-600 text-white hover:bg-rose-700"
+              onClick={confirmarAnulacionTicket}
+              disabled={loadingAnulacion}
+            >
+              {loadingAnulacion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirmar anulacion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ReportesContextBar
         fechaDesde={fechaDesde}
         fechaHasta={fechaHasta}
@@ -414,7 +563,7 @@ export const ReportesConsultasPage = () => {
                         <TableRow key={`row-ticket-${index}`}>
                           {(ticketsListado?.columnas || []).map((columna) => (
                             <TableCell key={`${index}-${columna}`} className="px-2 py-2">
-                              {columnasFila[columna] || "-"}
+                              {renderCellValue(columna, columnasFila[columna])}
                             </TableCell>
                           ))}
                           <TableCell className="px-2 py-2 text-right">
@@ -440,18 +589,12 @@ export const ReportesConsultasPage = () => {
                 </TableBody>
               </Table>
             </div>
-            {renderPagination(
+            {!ticketBusquedaActiva ? renderPagination(
               ticketsPage,
               getTotalRegistros(ticketsListado),
               () => cargarTicketsListado(ticketsPage - 1),
               () => cargarTicketsListado(ticketsPage + 1),
               loadingTickets
-            )}
-
-            {ticketDetalle ? (
-              <div className="pt-1">
-                {renderTablaDinamica(ticketDetalle.titulo || "Detalle ticket", ticketDetalle.columnas || [], ticketDetalle.filas || [])}
-              </div>
             ) : null}
           </div>
         </TabsContent>
@@ -476,18 +619,12 @@ export const ReportesConsultasPage = () => {
             })}
 
             {renderTablaDinamica(null, pagosListado?.columnas || [], pagosListado?.filas || [])}
-            {renderPagination(
+            {!pagoBusquedaActiva ? renderPagination(
               pagosPage,
               getTotalRegistros(pagosListado),
               () => cargarPagosListado(pagosPage - 1),
               () => cargarPagosListado(pagosPage + 1),
               loadingPagos
-            )}
-
-            {pagoDetalle ? (
-              <div className="pt-1">
-                {renderTablaDinamica(pagoDetalle.titulo || "Detalle pago", pagoDetalle.columnas || [], pagoDetalle.filas || [])}
-              </div>
             ) : null}
           </div>
         </TabsContent>
@@ -512,18 +649,12 @@ export const ReportesConsultasPage = () => {
             })}
 
             {renderTablaDinamica(null, reservasListado?.columnas || [], reservasListado?.filas || [])}
-            {renderPagination(
+            {!reservaBusquedaActiva ? renderPagination(
               reservasPage,
               getTotalRegistros(reservasListado),
               () => cargarReservasListado(reservasPage - 1),
               () => cargarReservasListado(reservasPage + 1),
               loadingReservas
-            )}
-
-            {reservaDetalle ? (
-              <div className="pt-1">
-                {renderTablaDinamica(reservaDetalle.titulo || "Detalle reserva", reservaDetalle.columnas || [], reservaDetalle.filas || [])}
-              </div>
             ) : null}
           </div>
         </TabsContent>
@@ -548,27 +679,13 @@ export const ReportesConsultasPage = () => {
             })}
 
             {renderTablaDinamica(null, vehiculosListado?.columnas || [], vehiculosListado?.filas || [])}
-            {renderPagination(
+            {!vehiculoBusquedaActiva ? renderPagination(
               vehiculosPage,
               getTotalRegistros(vehiculosListado),
               () => cargarVehiculosListado(vehiculosPage - 1),
               () => cargarVehiculosListado(vehiculosPage + 1),
               loadingVehiculos
-            )}
-
-            {vehiculoDetalle?.tickets &&
-              renderTablaDinamica(
-                vehiculoDetalle.tickets?.titulo || "Tickets del vehiculo",
-                vehiculoDetalle.tickets?.columnas || [],
-                vehiculoDetalle.tickets?.filas || []
-              )}
-
-            {vehiculoDetalle?.reservas &&
-              renderTablaDinamica(
-                vehiculoDetalle.reservas?.titulo || "Reservas del vehiculo",
-                vehiculoDetalle.reservas?.columnas || [],
-                vehiculoDetalle.reservas?.filas || []
-              )}
+            ) : null}
           </div>
         </TabsContent>
       </Tabs>
