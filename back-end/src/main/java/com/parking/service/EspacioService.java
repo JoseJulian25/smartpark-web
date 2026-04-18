@@ -2,8 +2,10 @@ package com.parking.service;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -55,12 +57,21 @@ public class EspacioService {
     public List<EspacioResponseDTO> listarEspacios() {
 
         List<Espacio> espacios = espacioRepository.findAllByActivoTrueOrderByIdAsc();
+        if (espacios.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> espacioIds = espacios.stream().map(Espacio::getId).toList();
+        Map<Long, Ticket> ticketActivoPorEspacio = obtenerTicketsActivosPorEspacio(espacioIds);
+        Map<Long, Reserva> reservaPendientePorEspacio = obtenerReservasPendientesPorEspacio(espacioIds);
+
         List<EspacioResponseDTO> response = new ArrayList<>();
 
         for (Espacio espacio : espacios) {
-            Optional<Ticket> ticketActivo = ticketRepository
-                    .findTopByEspacioIdAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(espacio.getId(), ESTADO_TICKET_ACTIVO);
-            response.add(toDto(espacio, ticketActivo.orElse(null)));
+            response.add(toDto(
+                    espacio,
+                    ticketActivoPorEspacio.get(espacio.getId()),
+                    reservaPendientePorEspacio.get(espacio.getId())));
         }
 
         return response;
@@ -73,7 +84,7 @@ public class EspacioService {
         List<EspacioResponseDTO> response = new ArrayList<>();
 
         for (Espacio espacio : espacios) {
-            response.add(toDto(espacio, null));
+            response.add(toDto(espacio, null, null));
         }
 
         return response;
@@ -93,8 +104,10 @@ public class EspacioService {
 
         Optional<Ticket> ticketActivo = ticketRepository
                 .findTopByEspacioIdAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(actualizado.getId(), ESTADO_TICKET_ACTIVO);
+        Optional<Reserva> reservaActiva = reservaRepository
+            .findTopByEspacioIdAndEstadoNombreIgnoreCaseOrderByHoraInicioDesc(actualizado.getId(), ESTADO_RESERVA_PENDIENTE);
 
-        return toDto(actualizado, ticketActivo.orElse(null));
+        return toDto(actualizado, ticketActivo.orElse(null), reservaActiva.orElse(null));
     }
 
     @Transactional
@@ -126,7 +139,7 @@ public class EspacioService {
         List<EspacioResponseDTO> response = new ArrayList<>();
 
         for (Espacio espacio : guardados) {
-            response.add(toDto(espacio, null));
+            response.add(toDto(espacio, null, null));
         }
 
         return response;
@@ -155,7 +168,35 @@ public class EspacioService {
         espacio.setActivo(true);
         Espacio reactivado = espacioRepository.save(espacio);
 
-        return toDto(reactivado, null);
+        return toDto(reactivado, null, null);
+    }
+
+    private Map<Long, Ticket> obtenerTicketsActivosPorEspacio(List<Long> espacioIds) {
+        List<Ticket> ticketsActivos = ticketRepository
+                .findAllByEspacioIdInAndEstadoNombreIgnoreCaseOrderByHoraEntradaDesc(espacioIds, ESTADO_TICKET_ACTIVO);
+
+        Map<Long, Ticket> ticketPorEspacio = new HashMap<>();
+        for (Ticket ticket : ticketsActivos) {
+            Long espacioId = ticket.getEspacio() == null ? null : ticket.getEspacio().getId();
+            if (espacioId != null && !ticketPorEspacio.containsKey(espacioId)) {
+                ticketPorEspacio.put(espacioId, ticket);
+            }
+        }
+        return ticketPorEspacio;
+    }
+
+    private Map<Long, Reserva> obtenerReservasPendientesPorEspacio(List<Long> espacioIds) {
+        List<Reserva> reservasPendientes = reservaRepository
+                .findAllByEspacioIdInAndEstadoNombreIgnoreCaseOrderByHoraInicioDesc(espacioIds, ESTADO_RESERVA_PENDIENTE);
+
+        Map<Long, Reserva> reservaPorEspacio = new HashMap<>();
+        for (Reserva reserva : reservasPendientes) {
+            Long espacioId = reserva.getEspacio() == null ? null : reserva.getEspacio().getId();
+            if (espacioId != null && !reservaPorEspacio.containsKey(espacioId)) {
+                reservaPorEspacio.put(espacioId, reserva);
+            }
+        }
+        return reservaPorEspacio;
     }
 
     private Espacio crearEspacio(TipoVehiculo tipoVehiculo, EstadoEspacio estadoLibre, String prefijo, int correlativo) {
@@ -200,7 +241,7 @@ public class EspacioService {
         return String.format("%s-%03d", prefijo, correlativo);
     }
 
-    private EspacioResponseDTO toDto(Espacio espacio, Ticket ticketActivo) {
+    private EspacioResponseDTO toDto(Espacio espacio, Ticket ticketActivo, Reserva reservaActiva) {
 
         TicketActivoDTO ticketActivoDTO = null;
         if (ticketActivo != null && ticketActivo.getHoraEntrada() != null) {
@@ -213,11 +254,7 @@ public class EspacioService {
         }
 
         ReservaActivaDTO reservaActivaDTO = null;
-        Optional<Reserva> reservaActiva = reservaRepository
-            .findTopByEspacioIdAndEstadoNombreIgnoreCaseOrderByHoraInicioDesc(espacio.getId(), ESTADO_RESERVA_PENDIENTE);
-
-        if (reservaActiva.isPresent() && reservaActiva.get().getHoraInicio() != null) {
-            Reserva reserva = reservaActiva.get();
+        if (reservaActiva != null && reservaActiva.getHoraInicio() != null) {
             reservaActivaDTO = new ReservaActivaDTO(
                 reserva.getCodigoReserva(),
                 reserva.getClienteNombreCompleto(),
