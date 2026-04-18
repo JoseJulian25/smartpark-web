@@ -14,5 +14,30 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     host: true
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': [
+            'react',
+            'react-dom',
+            'react-router-dom',
+            'axios'
+          ],
+          'reportes': [
+            './src/pages/reportes/ReportesOperativosPage.jsx',
+            './src/pages/reportes/ReportesReservasPage.jsx',
+            './src/pages/reportes/ReportesOcupacionPage.jsx',
+            './src/pages/reportes/ReportesFinancierosPage.jsx',
+            './src/pages/reportes/ReportesConsultasPage.jsx'
+          ],
+          'ui-components': [
+            './src/components/ui/'
+          ]
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   }
 })
