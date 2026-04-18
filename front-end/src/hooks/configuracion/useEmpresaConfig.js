@@ -75,8 +75,8 @@ export const useEmpresaConfig = ({ onError, onSuccess }) => {
         email: empresaForm.email.trim(),
       };
 
-      if (!payload.nombre || !payload.rnc || !payload.direccion || !payload.telefono || !payload.email) {
-        pushError("Todos los campos de empresa son requeridos");
+      if (!payload.nombre || !payload.direccion || !payload.telefono || !payload.email) {
+        pushError("Nombre, dirección, teléfono y email son requeridos");
         return;
       }
 
