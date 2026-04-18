@@ -28,6 +28,7 @@ import com.parking.service.reportes.common.ReportesCommonService.RangoFechas;
 @Service
 public class ConsultasReportService {
 
+        private static final String ESTADO_TICKET_ANULADO = "ANULADO";
     private static final int MAX_RANGE_DIAS = 92;
     private static final int DEFAULT_PAGE = 0;
     private static final int DEFAULT_SIZE = 50;
@@ -326,6 +327,7 @@ public class ConsultasReportService {
         List<Ticket> tickets = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
                 rango.fechaDesde(),
                 rango.fechaHasta()).stream()
+                .filter(ticket -> !esTicketAnulado(ticket))
                 .filter(ticket -> ticket.getPlaca() != null && !ticket.getPlaca().isBlank())
                 .toList();
 
@@ -404,4 +406,10 @@ public class ConsultasReportService {
                 commonService.paginarFilas(filas, page, size, DEFAULT_PAGE, DEFAULT_SIZE, MAX_SIZE),
                 (long) filas.size());
     }
+
+        private boolean esTicketAnulado(Ticket ticket) {
+                return ticket.getEstado() != null
+                                && ticket.getEstado().getNombre() != null
+                                && ESTADO_TICKET_ANULADO.equalsIgnoreCase(ticket.getEstado().getNombre());
+        }
 }

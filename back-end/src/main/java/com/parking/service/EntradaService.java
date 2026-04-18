@@ -19,8 +19,8 @@ import com.parking.entity.TipoVehiculo;
 import com.parking.entity.Usuario;
 import com.parking.repository.EspacioRepository;
 import com.parking.repository.EstadoEspacioRepository;
-import com.parking.repository.ReservaRepository;
 import com.parking.repository.EstadoTicketRepository;
+import com.parking.repository.ReservaRepository;
 import com.parking.repository.TicketRepository;
 import com.parking.repository.TipoVehiculoRepository;
 import com.parking.repository.UsuarioRepository;
@@ -32,6 +32,8 @@ public class EntradaService {
     private static final String ESTADO_ESPACIO_RESERVADO = "RESERVADO";
     private static final String ESTADO_ESPACIO_OCUPADO = "OCUPADO";
     private static final String ESTADO_TICKET_ACTIVO = "ACTIVO";
+    private static final String ESTADO_TICKET_CERRADO = "CERRADO";
+    private static final String ESTADO_TICKET_ANULADO = "ANULADO";
     private static final String ESTADO_RESERVA_ACTIVA = "ACTIVA";
 
     private final EspacioRepository espacioRepository;
@@ -129,6 +131,54 @@ public class EntradaService {
                 creado.getEspacio().getCodigoEspacio(),
                 creado.getEstado().getNombre(),
                 creado.getHoraEntrada());
+    }
+
+    @Transactional
+    public EntradaVehiculoResponseDTO anularTicket(String codigoTicket) {
+        String codigoNormalizado = normalize(codigoTicket);
+        if (codigoNormalizado.isBlank()) {
+            throw new IllegalArgumentException("El codigo de ticket es obligatorio");
+        }
+
+        Ticket ticket = ticketRepository.findByCodigoTicketIgnoreCase(codigoNormalizado)
+                .orElseThrow(() -> new NoSuchElementException("Ticket no encontrado"));
+
+        String estadoActual = ticket.getEstado() == null ? "" : normalize(ticket.getEstado().getNombre()).toUpperCase(Locale.ROOT);
+        if (ESTADO_TICKET_CERRADO.equals(estadoActual)) {
+            throw new IllegalStateException("No se puede anular un ticket cerrado");
+        }
+        if (ESTADO_TICKET_ANULADO.equals(estadoActual)) {
+            throw new IllegalStateException("El ticket ya se encuentra anulado");
+        }
+        if (!ESTADO_TICKET_ACTIVO.equals(estadoActual)) {
+            throw new IllegalStateException("Solo se pueden anular tickets activos");
+        }
+
+        EstadoTicket estadoTicketAnulado = estadoTicketRepository.findByNombreIgnoreCase(ESTADO_TICKET_ANULADO)
+                .orElseThrow(() -> new NoSuchElementException("Estado de ticket ANULADO no encontrado"));
+
+        EstadoEspacio estadoLibre = estadoEspacioRepository.findByNombreIgnoreCase(ESTADO_ESPACIO_LIBRE)
+                .orElseThrow(() -> new NoSuchElementException("Estado de espacio LIBRE no encontrado"));
+
+        ticket.setEstado(estadoTicketAnulado);
+        ticket.setHoraSalida(LocalDateTime.now());
+        ticket.setMontoTotal(null);
+        Ticket actualizado = ticketRepository.save(ticket);
+
+        Espacio espacio = ticket.getEspacio();
+        if (espacio != null) {
+            espacio.setEstado(estadoLibre);
+            espacioRepository.save(espacio);
+        }
+
+        return new EntradaVehiculoResponseDTO(
+                actualizado.getCodigoTicket(),
+                actualizado.getPlaca(),
+                actualizado.getTipoVehiculo() == null ? "-" : actualizado.getTipoVehiculo().getNombre(),
+                actualizado.getEspacio() == null ? null : actualizado.getEspacio().getId(),
+                actualizado.getEspacio() == null ? "-" : actualizado.getEspacio().getCodigoEspacio(),
+                actualizado.getEstado() == null ? "-" : actualizado.getEstado().getNombre(),
+                actualizado.getHoraEntrada());
     }
 
     private String generarCodigoTicket() {

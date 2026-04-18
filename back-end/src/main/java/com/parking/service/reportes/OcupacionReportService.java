@@ -25,6 +25,7 @@ import com.parking.service.reportes.common.ReportesCommonService.RangoFechas;
 @Service
 public class OcupacionReportService {
 
+        private static final String ESTADO_TICKET_ANULADO = "ANULADO";
     private static final int MAX_RANGE_DIAS = 92;
 
     private final EspacioRepository espacioRepository;
@@ -46,7 +47,9 @@ public class OcupacionReportService {
         List<Espacio> espacios = espacioRepository.findAll();
         List<Ticket> tickets = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
                 rango.fechaDesde(),
-                rango.fechaHasta());
+                rango.fechaHasta()).stream()
+                .filter(ticket -> !esTicketAnulado(ticket))
+                .toList();
 
         Map<Long, Long> usoPorEspacioId = tickets.stream()
                 .filter(ticket -> ticket.getEspacio() != null && ticket.getEspacio().getId() != null)
@@ -84,6 +87,7 @@ public class OcupacionReportService {
         List<Ticket> tickets = ticketRepository.findAllByHoraEntradaGreaterThanEqualAndHoraEntradaLessThan(
                 rango.fechaDesde(),
                 rango.fechaHasta()).stream()
+                .filter(ticket -> !esTicketAnulado(ticket))
                 .filter(ticket -> ticket.getHoraEntrada() != null)
                 .filter(ticket -> ticket.getEspacio() != null && ticket.getEspacio().getCodigoEspacio() != null)
                 .toList();
@@ -161,4 +165,10 @@ public class OcupacionReportService {
             default -> fechaHora.toLocalDate().toString();
         };
     }
+
+        private boolean esTicketAnulado(Ticket ticket) {
+                return ticket.getEstado() != null
+                                && ticket.getEstado().getNombre() != null
+                                && ESTADO_TICKET_ANULADO.equalsIgnoreCase(ticket.getEstado().getNombre());
+        }
 }

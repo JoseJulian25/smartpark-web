@@ -25,6 +25,7 @@ import com.parking.service.reportes.common.ReportesCommonService.RangoFechas;
 public class OperativosReportService {
 
     private static final String ESTADO_TICKET_ACTIVO = "ACTIVO";
+    private static final String ESTADO_TICKET_ANULADO = "ANULADO";
     private static final int MAX_RANGE_DIAS = 92;
 
     private final TicketRepository ticketRepository;
@@ -184,6 +185,7 @@ public class OperativosReportService {
     private List<Ticket> filtrarPorUsuarioYTipo(List<Ticket> tickets, Long usuarioId, String tipoVehiculo) {
         String tipoNormalizado = normalizarTipo(tipoVehiculo);
         return filtrarPorUsuario(tickets, usuarioId).stream()
+                .filter(ticket -> !esTicketAnulado(ticket))
                 .filter(ticket -> {
                     if (tipoNormalizado == null) {
                         return true;
@@ -194,6 +196,12 @@ public class OperativosReportService {
                     return tipoNormalizado.equals(ticket.getTipoVehiculo().getNombre().toUpperCase(Locale.ROOT));
                 })
                 .toList();
+    }
+
+    private boolean esTicketAnulado(Ticket ticket) {
+        return ticket.getEstado() != null
+                && ticket.getEstado().getNombre() != null
+                && ESTADO_TICKET_ANULADO.equalsIgnoreCase(ticket.getEstado().getNombre());
     }
 
     private String normalizarTipo(String tipoVehiculo) {

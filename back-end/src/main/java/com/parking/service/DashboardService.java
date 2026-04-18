@@ -15,6 +15,8 @@ import com.parking.repository.TicketRepository;
 @Service
 public class DashboardService {
 
+    private static final String ESTADO_TICKET_ANULADO = "ANULADO";
+
     private final TicketRepository ticketRepository;
 
     public DashboardService(TicketRepository ticketRepository) {
@@ -34,7 +36,7 @@ public class DashboardService {
                 startOfDay,
                 endOfDay);
         for (Ticket ticket : entradasHoy) {
-            if (ticket.getHoraEntrada() != null) {
+            if (ticket.getHoraEntrada() != null && !esTicketAnulado(ticket)) {
                 entradasPorHora[ticket.getHoraEntrada().getHour()]++;
             }
         }
@@ -43,7 +45,7 @@ public class DashboardService {
                 startOfDay,
                 endOfDay);
         for (Ticket ticket : salidasHoy) {
-            if (ticket.getHoraSalida() != null) {
+            if (ticket.getHoraSalida() != null && !esTicketAnulado(ticket)) {
                 salidasPorHora[ticket.getHoraSalida().getHour()]++;
             }
         }
@@ -58,5 +60,11 @@ public class DashboardService {
         }
 
         return response;
+    }
+
+    private boolean esTicketAnulado(Ticket ticket) {
+        return ticket.getEstado() != null
+                && ticket.getEstado().getNombre() != null
+                && ESTADO_TICKET_ANULADO.equalsIgnoreCase(ticket.getEstado().getNombre());
     }
 }

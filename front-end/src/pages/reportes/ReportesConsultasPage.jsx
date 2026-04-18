@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { Loader2, RefreshCw, Search } from "lucide-react";
 
 import {
+  anularTicket,
   consultarPagoPorTicket,
   consultarPorPlaca,
   consultarPorReserva,
@@ -151,6 +152,7 @@ export const ReportesConsultasPage = () => {
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [loadingVehiculos, setLoadingVehiculos] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [loadingAnulacion, setLoadingAnulacion] = useState(false);
 
   const baseParams = useMemo(
     () => ({
@@ -228,6 +230,34 @@ export const ReportesConsultasPage = () => {
     }
   };
 
+  const handleAnularTicketDesdeFila = async (codigo) => {
+    const codigoNormalizado = String(codigo || "").trim();
+    if (!codigoNormalizado) {
+      toast.error("No se encontro el codigo de ticket");
+      return;
+    }
+
+    if (!window.confirm(`Confirmas anular el ticket ${codigoNormalizado}?`)) {
+      return;
+    }
+
+    try {
+      setLoadingAnulacion(true);
+      await anularTicket(codigoNormalizado);
+      toast.success("Ticket anulado correctamente");
+
+      const refreshTasks = [cargarTicketsListado(ticketsPage)];
+      if (codigoTicket.trim().toUpperCase() === codigoNormalizado.toUpperCase()) {
+        refreshTasks.push(buscarTicketPorCodigo());
+      }
+      await Promise.all(refreshTasks);
+    } catch (error) {
+      toast.error(await getReportesErrorMessage(error, "No se pudo anular el ticket"));
+    } finally {
+      setLoadingAnulacion(false);
+    }
+  };
+
   const buscarPagoPorCodigo = async () => {
     const value = codigoPagoTicket.trim();
     if (!value) {
@@ -292,7 +322,7 @@ export const ReportesConsultasPage = () => {
     cargarSeccionActiva();
   }, [seccionActiva]);
 
-  const loading = loadingTickets || loadingPagos || loadingReservas || loadingVehiculos || loadingDetalle;
+  const loading = loadingTickets || loadingPagos || loadingReservas || loadingVehiculos || loadingDetalle || loadingAnulacion;
 
   const renderPagination = (page, total, onPrev, onNext, loadingSection) => {
     const canPrev = page > 0;
@@ -354,7 +384,62 @@ export const ReportesConsultasPage = () => {
               loading: loadingDetalle,
             })}
 
-            {renderTablaDinamica(null, ticketsListado?.columnas || [], ticketsListado?.filas || [])}
+            <div className="rounded-md border border-slate-300/90 bg-white">
+              <Table className="reportes-table">
+                <TableHeader>
+                  <TableRow>
+                    {(ticketsListado?.columnas || []).map((columna) => (
+                      <TableHead key={columna} className="h-9 px-2">
+                        {columna}
+                      </TableHead>
+                    ))}
+                    <TableHead className="h-9 px-2 text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!ticketsListado?.filas?.length ? (
+                    <TableRow>
+                      <TableCell colSpan={Math.max((ticketsListado?.columnas || []).length + 1, 1)} className="py-6 text-center text-xs text-muted-foreground">
+                        Sin resultados.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    ticketsListado.filas.map((fila, index) => {
+                      const columnasFila = fila?.columnas || {};
+                      const estadoFila = String(columnasFila.estado || "").toUpperCase();
+                      const codigoFila = columnasFila.codigoTicket;
+                      const canAnularFila = estadoFila === "ACTIVO" && Boolean(codigoFila);
+
+                      return (
+                        <TableRow key={`row-ticket-${index}`}>
+                          {(ticketsListado?.columnas || []).map((columna) => (
+                            <TableCell key={`${index}-${columna}`} className="px-2 py-2">
+                              {columnasFila[columna] || "-"}
+                            </TableCell>
+                          ))}
+                          <TableCell className="px-2 py-2 text-right">
+                            {canAnularFila ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 border-rose-300 px-2 text-[11px] text-rose-700 hover:bg-rose-50"
+                                onClick={() => handleAnularTicketDesdeFila(codigoFila)}
+                                disabled={loadingAnulacion}
+                              >
+                                {loadingAnulacion ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                                Anular
+                              </Button>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
             {renderPagination(
               ticketsPage,
               getTotalRegistros(ticketsListado),
