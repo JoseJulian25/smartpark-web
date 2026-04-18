@@ -445,11 +445,6 @@ export const DashboardPage = () => {
               )}
             </TableBody>
           </Table>
-
-          <div className="pt-1 flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate("/entrada")}>Entradas/Salidas</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate("/reservas")}>Reservas</Button>
-          </div>
         </CardContent>
       </Card>
     </div>
