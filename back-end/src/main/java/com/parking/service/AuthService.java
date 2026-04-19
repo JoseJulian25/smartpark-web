@@ -37,8 +37,9 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByUsernameAndActivoTrueAndEliminadoFalse(dto.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + dto.getUsername()));
 
-        // 3. Credenciales correctas → generar token con rol
-        String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getRol().getNombre());
+
+        // 3. Credenciales correctas → generar token con nombre y rol
+        String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getNombre(), usuario.getRol().getNombre());
 
         return new LoginResponseDTO(
                 token,

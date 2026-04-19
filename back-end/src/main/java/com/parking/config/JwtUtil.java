@@ -25,14 +25,19 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String username, String role) {
+    public String generateToken(String username, String nombre, String role) {
         return Jwts.builder()
                 .subject(username)
+                .claim("nombre", nombre)
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey())
                 .compact();
+    }
+    public String extractNombre(String token) {
+        Object nombre = getClaims(token).get("nombre");
+        return nombre == null ? null : nombre.toString();
     }
 
     public String extractUsername(String token) {
