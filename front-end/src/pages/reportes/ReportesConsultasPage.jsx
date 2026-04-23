@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Loader2, RefreshCw, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 import {
   anularPagoPorTicket,
@@ -99,6 +99,43 @@ const toTablaPrincipalResponse = (response) => {
   };
 };
 
+const getColumnLabel = (columnName) => {
+  const key = String(columnName || "").trim();
+  const labels = {
+    registro: "Tipo",
+    placa: "Placa",
+    codigo: "Código",
+    codigoTicket: "Código de ticket",
+    codigoReserva: "Código de reserva",
+    codigoPago: "Código de pago",
+    estado: "Estado",
+    estadoTicket: "Estado ticket",
+    estadoPago: "Estado pago",
+    tipoVehiculo: "Tipo de vehículo",
+    codigoEspacio: "Espacio",
+    horaEntrada: "Hora entrada",
+    horaSalida: "Hora salida",
+    horaInicio: "Hora inicio",
+    horaFin: "Hora fin",
+    montoTotal: "Total",
+    fecha: "Fecha",
+  };
+
+  if (Object.prototype.hasOwnProperty.call(labels, key)) {
+    return labels[key];
+  }
+
+  const readable = key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .trim()
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  return readable || key;
+};
+
 const toVehiculoBusquedaTabla = (response) => {
   const tickets = Array.isArray(response?.tickets?.filas) ? response.tickets.filas : [];
   const reservas = Array.isArray(response?.reservas?.filas) ? response.reservas.filas : [];
@@ -161,7 +198,7 @@ const renderTablaDinamica = (titulo, columnas = [], filas = [], options = {}) =>
           <TableRow>
             {columnas.map((columna) => (
               <TableHead key={columna} className="h-9 px-2">
-                {columna}
+                {getColumnLabel(columna)}
               </TableHead>
             ))}
           </TableRow>
@@ -597,7 +634,7 @@ export const ReportesConsultasPage = () => {
                   <TableRow>
                     {(ticketsListado?.columnas || []).map((columna) => (
                       <TableHead key={columna} className="h-9 px-2">
-                        {columna}
+                        {getColumnLabel(columna)}
                       </TableHead>
                     ))}
                     <TableHead className="h-9 px-2 text-right">Acciones</TableHead>
@@ -678,7 +715,7 @@ export const ReportesConsultasPage = () => {
                   <TableRow>
                     {(pagosListado?.columnas || []).map((columna) => (
                       <TableHead key={columna} className="h-9 px-2">
-                        {columna}
+                        {getColumnLabel(columna)}
                       </TableHead>
                     ))}
                     <TableHead className="h-9 px-2 text-right">Acciones</TableHead>
