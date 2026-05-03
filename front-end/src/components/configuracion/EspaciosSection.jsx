@@ -10,12 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
 export const EspaciosSection = () => {
+  const PAGE_SIZE = 20;
   const [espacios, setEspacios] = useState([]);
   const [espaciosInactivos, setEspaciosInactivos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState(null);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [categoria, setCategoria] = useState("total");
+  const [page, setPage] = useState(1);
 
   const fetchEspacios = async () => {
     try {
@@ -33,6 +35,10 @@ export const EspaciosSection = () => {
   useEffect(() => {
     fetchEspacios();
   }, []);
+
+  useEffect(() => {
+    setPage(1);
+  }, [categoria, espaciosInactivos.length, espacios.length]);
 
   const handleAgregarLote = async (payload) => {
     try {
@@ -144,6 +150,11 @@ export const EspaciosSection = () => {
     return !espaciosInactivosIds.has(espacio?.id);
   };
 
+  const totalPages = Math.max(1, Math.ceil(espaciosFiltrados.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * PAGE_SIZE;
+  const espaciosPaginados = espaciosFiltrados.slice(startIndex, startIndex + PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -209,7 +220,7 @@ export const EspaciosSection = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                espaciosFiltrados.slice(0, 80).map((espacio) => {
+                espaciosPaginados.map((espacio) => {
                   const activo = isEspacioActivo(espacio);
                   return (
                     <TableRow key={espacio.id}>
@@ -241,9 +252,32 @@ export const EspaciosSection = () => {
             </TableBody>
           </Table>
 
-          {espaciosFiltrados.length > 80 ? (
-            <p className="text-xs text-muted-foreground">Mostrando 80 de {espaciosFiltrados.length} espacios.</p>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              Mostrando {espaciosFiltrados.length ? startIndex + 1 : 0} a {Math.min(startIndex + PAGE_SIZE, espaciosFiltrados.length)} de {espaciosFiltrados.length}.
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage === 1}
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              >
+                Anterior
+              </Button>
+              <span>
+                Pagina {safePage} de {totalPages}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={safePage === totalPages}
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
