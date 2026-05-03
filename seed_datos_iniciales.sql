@@ -14,24 +14,7 @@ INSERT INTO empresas (nombre, rnc, direccion, telefono, email)
 SELECT 'SmartPark SRL', '131-00000-1', 'Av. 27 de Febrero, Santo Domingo', '809-555-0000', 'info@smartpark.com'
 WHERE NOT EXISTS (SELECT 1 FROM empresas);
 
--- Tarifas base por tipo de vehiculo
-INSERT INTO tarifas (tipo_vehiculo_id, minutos_fraccion, minutos_tolerancia, minutos_minimo, precio_por_fraccion)
-VALUES (
-    (SELECT id FROM tipos_vehiculo WHERE nombre = 'CARRO'),
-    30,
-    10,
-    30,
-    100.00
-) ON CONFLICT (tipo_vehiculo_id) DO NOTHING;
 
-INSERT INTO tarifas (tipo_vehiculo_id, minutos_fraccion, minutos_tolerancia, minutos_minimo, precio_por_fraccion)
-VALUES (
-    (SELECT id FROM tipos_vehiculo WHERE nombre = 'MOTO'),
-    30,
-    10,
-    30,
-    60.00
-) ON CONFLICT (tipo_vehiculo_id) DO NOTHING;
 
 -- Estados de espacio UTI
 INSERT INTO estados_espacio (nombre) VALUES ('LIBRE') ON CONFLICT (nombre) DO NOTHING;
@@ -55,7 +38,7 @@ INSERT INTO usuarios (username, nombre, password, rol_id, activo, eliminado, fec
 VALUES (
     'admin',
     'Administrador',
-    '$2a$10$VufadKFm1fm/8GKTIn87MugS.QyQbs3WXm3/s84nbtLF1dy1Po7L2',
+    '$2a$10$zYIurFX2BEyOeTBdZSfPx.tPWEPxwbt.datPScfpffhGPrWZW15uK',
     (SELECT id FROM roles WHERE nombre = 'ADMIN'),
     true,
     false,
@@ -67,7 +50,7 @@ INSERT INTO usuarios (username, nombre, password, rol_id, activo, eliminado, fec
 VALUES (
     'operador',
     'Operador',
-    '$2a$10$I045ZWAtaN1EyWYNIUxN7ec3kVm4hRkzl3X47j.gdLSc97HnbCMfW',
+    '$2a$10$ZWrrAZRLhy8dGpILg4P79e.vnDUAPDVta1dcGfacGHU5.iAiCwciS',
     (SELECT id FROM roles WHERE nombre = 'OPERADOR'),
     true,
     false,
