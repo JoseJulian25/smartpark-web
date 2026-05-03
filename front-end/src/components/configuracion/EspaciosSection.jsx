@@ -7,6 +7,14 @@ import AddEspaciosDialog from "../espacios/AddEspaciosDialog";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
 export const EspaciosSection = () => {
@@ -18,6 +26,8 @@ export const EspaciosSection = () => {
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [categoria, setCategoria] = useState("total");
   const [page, setPage] = useState(1);
+  const [openDesactivarDialog, setOpenDesactivarDialog] = useState(false);
+  const [espacioPendiente, setEspacioPendiente] = useState(null);
 
   const fetchEspacios = async () => {
     try {
@@ -52,20 +62,24 @@ export const EspaciosSection = () => {
     }
   };
 
-  const handleDesactivar = async (espacio) => {
+  const handleOpenDesactivar = (espacio) => {
     if (!espacio?.id) return;
     if (String(espacio.estado || "").toUpperCase() !== "LIBRE") {
       toast.error("Solo se pueden desactivar espacios en estado LIBRE");
       return;
     }
+    setEspacioPendiente(espacio);
+    setOpenDesactivarDialog(true);
+  };
 
-    const confirmed = window.confirm(`Desactivar ${espacio.codigoEspacio}? Se marcara como activo=0.`);
-    if (!confirmed) return;
-
+  const handleConfirmDesactivar = async () => {
+    if (!espacioPendiente?.id) return;
     try {
-      setLoadingActionId(espacio.id);
-      await deleteEspacio(espacio.id);
-      toast.success("Espacio desactivado (activo=0)");
+      setLoadingActionId(espacioPendiente.id);
+      await deleteEspacio(espacioPendiente.id);
+      toast.success("Espacio desactivado");
+      setOpenDesactivarDialog(false);
+      setEspacioPendiente(null);
       await fetchEspacios();
     } catch (error) {
       const message = error?.response?.data?.message || "No se pudo desactivar el espacio";
@@ -150,6 +164,20 @@ export const EspaciosSection = () => {
     return !espaciosInactivosIds.has(espacio?.id);
   };
 
+  const getEstadoStyle = (estado) => {
+    const value = String(estado || "").trim().toUpperCase();
+    if (value === "LIBRE") {
+      return "border-emerald-200 bg-emerald-100 text-emerald-800";
+    }
+    if (value === "OCUPADO") {
+      return "border-red-200 bg-red-100 text-red-800";
+    }
+    if (value === "RESERVADO") {
+      return "border-amber-200 bg-amber-100 text-amber-800";
+    }
+    return "border-slate-200 bg-slate-100 text-slate-800";
+  };
+
   const totalPages = Math.max(1, Math.ceil(espaciosFiltrados.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const startIndex = (safePage - 1) * PAGE_SIZE;
@@ -171,7 +199,7 @@ export const EspaciosSection = () => {
 
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Aquí se gestiona capacidad y activación lógica (activo=0/1). El estado operativo del parqueo se controla por el flujo normal del sistema.
+            Aquí se gestiona capacidad y activación de espacios. El estado operativo del parqueo se controla por el flujo normal del sistema.
           </p>
 
           <div className="flex flex-wrap gap-2">
@@ -226,7 +254,11 @@ export const EspaciosSection = () => {
                     <TableRow key={espacio.id}>
                       <TableCell className="px-2 py-2 font-medium">{espacio.codigoEspacio || espacio.numero || "-"}</TableCell>
                       <TableCell className="px-2 py-2">{espacio.tipoVehiculo || "-"}</TableCell>
-                      <TableCell className="px-2 py-2">{espacio.estado || "-"}</TableCell>
+                      <TableCell className="px-2 py-2">
+                        <Badge variant="outline" className={getEstadoStyle(espacio.estado)}>
+                          {espacio.estado || "-"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="px-2 py-2">
                         <Badge
                           variant="outline"
@@ -240,7 +272,7 @@ export const EspaciosSection = () => {
                           size="sm"
                           variant="outline"
                           disabled={loadingActionId === espacio.id || (activo && String(espacio.estado || "").toUpperCase() !== "LIBRE")}
-                          onClick={() => (activo ? handleDesactivar(espacio) : handleReactivar(espacio))}
+                          onClick={() => (activo ? handleOpenDesactivar(espacio) : handleReactivar(espacio))}
                         >
                           {loadingActionId === espacio.id ? "Procesando..." : activo ? "Desactivar" : "Reactivar"}
                         </Button>
@@ -286,6 +318,39 @@ export const EspaciosSection = () => {
         onClose={() => setOpenAddDialog(false)}
         onSave={handleAgregarLote}
       />
+
+      <Dialog open={openDesactivarDialog} onOpenChange={setOpenDesactivarDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desactivar espacio</DialogTitle>
+            <DialogDescription>
+              {espacioPendiente
+                ? `Confirma que deseas desactivar el espacio ${espacioPendiente.codigoEspacio || espacioPendiente.numero || "-"}.`
+                : "Confirma que deseas desactivar este espacio."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (loadingActionId) return;
+                setOpenDesactivarDialog(false);
+                setEspacioPendiente(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDesactivar}
+              disabled={loadingActionId === espacioPendiente?.id}
+            >
+              {loadingActionId === espacioPendiente?.id ? "Procesando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
