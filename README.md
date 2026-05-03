@@ -51,8 +51,6 @@ El proyecto está construido bajo una arquitectura cliente-servidor robusta y mo
 
 ## 📸 Capturas
 
-Capturas de referencia (puedes reemplazarlas por imágenes reales del sistema):
-
 ![Dashboard](./screenshots/dashboard.png)
 ![Entrada y Salida](./screenshots/EntradasSalidas.png)
 ![Reportes](./screenshots/reportesFinancieros.png)
