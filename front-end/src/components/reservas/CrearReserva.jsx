@@ -97,10 +97,15 @@ export default function CrearReserva({ onSuccess }) {
         placa: reservaCreadaResponse.placa,
         tipoVehiculo: reservaCreadaResponse.tipoVehiculo,
         horaInicio: reservaCreadaResponse.horaInicio,
-        espacio: reservaCreadaResponse.codigoEspacio
+        espacio: reservaCreadaResponse.codigoEspacio,
+        correoEnviado: reservaCreadaResponse.correoEnviado
       });
 
-      toast.success("Reserva creada correctamente");
+      if (!reservaCreadaResponse.correoEnviado) {
+        toast.error("Reserva creada, pero no se pudo enviar el correo");
+      } else {
+        toast.success("Reserva creada correctamente");
+      }
 
       setPlaca("");
       setFechaReserva("");

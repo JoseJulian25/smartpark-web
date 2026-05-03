@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 import {
   confirmarLlegada,
   cancelarReserva,
-  getReservas
+  getReservas,
+  reenviarCorreoReserva
 } from "../../api/reservas";
 
 import {
@@ -100,12 +102,15 @@ const getErrorMessage = (error, fallback) => {
 
 export default function ListaReservas({ refresh }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = (user?.rol || user?.role || "").toLowerCase() === "admin";
 
   const [reservas, setReservas] = useState([]);
   const [filtro, setFiltro] = useState("pendientes");
   const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(false);
   const [procesandoCodigo, setProcesandoCodigo] = useState("");
+  const [reenviandoCodigo, setReenviandoCodigo] = useState("");
   const [openCancelDialog, setOpenCancelDialog] = useState(false);
   const [motivoCancelacion, setMotivoCancelacion] = useState("");
   const [codigoReservaCancelar, setCodigoReservaCancelar] = useState("");
@@ -183,6 +188,20 @@ export default function ListaReservas({ refresh }) {
       toast.error(getErrorMessage(error, "Error cancelando reserva"));
     } finally {
       setProcesandoCodigo("");
+    }
+  };
+
+  const handleReenviarCorreo = async (codigoReserva) => {
+    try {
+      setReenviandoCodigo(codigoReserva);
+      await reenviarCorreoReserva(codigoReserva);
+      toast.success("Correo reenviado correctamente");
+      await fetchReservas();
+    } catch (error) {
+      console.error(error);
+      toast.error(getErrorMessage(error, "Error reenviando correo"));
+    } finally {
+      setReenviandoCodigo("");
     }
   };
 
@@ -390,6 +409,17 @@ export default function ListaReservas({ refresh }) {
                       onClick={() => handleOpenCancelar(reserva.codigoReserva)}
                     >
                       {procesandoCodigo === reserva.codigoReserva ? "Procesando..." : "Cancelar"}
+                    </Button>
+                  )}
+
+                  {isAdmin && !reserva.correoEnviado && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={reenviandoCodigo === reserva.codigoReserva}
+                      onClick={() => handleReenviarCorreo(reserva.codigoReserva)}
+                    >
+                      {reenviandoCodigo === reserva.codigoReserva ? "Reenviando..." : "Reenviar correo"}
                     </Button>
                   )}
 

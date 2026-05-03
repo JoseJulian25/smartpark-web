@@ -56,4 +56,9 @@ public class ReservaController {
             @Valid @RequestBody ReservaCancelacionDTO dto) {
         return ResponseEntity.ok(reservaService.cancelarReserva(codigoReserva, dto));
     }
+
+    @PatchMapping("/{codigoReserva}/reenviar-correo")
+    public ResponseEntity<ReservaResponseDTO> reenviarCorreo(@PathVariable String codigoReserva) {
+        return ResponseEntity.ok(reservaService.reenviarCorreoReserva(codigoReserva));
+    }
 }

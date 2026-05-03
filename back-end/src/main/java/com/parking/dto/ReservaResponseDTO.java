@@ -25,5 +25,6 @@ public class ReservaResponseDTO {
     private String clienteNombreCompleto;
     private String clienteTelefono;
     private String clienteEmail;
+    private Boolean correoEnviado;
     private LocalDateTime fechaCreacion;
 }

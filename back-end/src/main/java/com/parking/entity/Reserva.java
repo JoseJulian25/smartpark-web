@@ -58,6 +58,9 @@ public class Reserva {
     @Size(max = 120)
     @Column(name = "cliente_email", nullable = false, length = 120)
     private String clienteEmail;
+
+    @Column(name = "correo_enviado")
+    private Boolean correoEnviado = false;
     
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "tipo_vehiculo_id", nullable = false)

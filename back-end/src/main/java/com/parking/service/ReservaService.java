@@ -118,16 +118,42 @@ public class ReservaService {
         reserva.setClienteTelefono(normalize(dto.getClienteTelefono()));
         reserva.setClienteEmail(normalize(dto.getClienteEmail()).toLowerCase(Locale.ROOT));
         reserva.setCreadoPor(obtenerUsuarioAutenticado());
+        reserva.setCorreoEnviado(false);
 
         Reserva creada = reservaRepository.save(reserva);
 
         espacio.setEstado(estadoEspacioReservado);
         espacioRepository.save(espacio);
 
-        // Si falla el envio del correo, se lanza excepcion runtime y la transaccion se revierte.
-        reservaEmailService.enviarConfirmacionReserva(creada);
+        try {
+            reservaEmailService.enviarConfirmacionReserva(creada);
+            creada.setCorreoEnviado(true);
+            reservaRepository.save(creada);
+        } catch (EmailDeliveryException ex) {
+            log.warn("No se pudo enviar correo de confirmacion para la reserva {}", creada.getCodigoReserva(), ex);
+        }
 
         return toDto(creada);
+    }
+
+    @Transactional
+    public ReservaResponseDTO reenviarCorreoReserva(String codigoReserva) {
+        Reserva reserva = reservaRepository.findByCodigoReserva(normalize(codigoReserva))
+                .orElseThrow(() -> new NoSuchElementException("Reserva no encontrada"));
+
+        if (Boolean.TRUE.equals(reserva.getCorreoEnviado())) {
+            throw new IllegalStateException("El correo ya fue enviado para esta reserva");
+        }
+
+        try {
+            reservaEmailService.enviarConfirmacionReserva(reserva);
+            reserva.setCorreoEnviado(true);
+            Reserva actualizada = reservaRepository.save(reserva);
+            return toDto(actualizada);
+        } catch (EmailDeliveryException ex) {
+            log.warn("No se pudo reenviar correo para la reserva {}", reserva.getCodigoReserva(), ex);
+            throw new IllegalStateException("No se pudo reenviar el correo de la reserva");
+        }
     }
 
     @Transactional
@@ -221,6 +247,7 @@ public class ReservaService {
                 reserva.getClienteNombreCompleto(),
                 reserva.getClienteTelefono(),
                 reserva.getClienteEmail(),
+            reserva.getCorreoEnviado(),
                 reserva.getFechaCreacion());
     }
 }
