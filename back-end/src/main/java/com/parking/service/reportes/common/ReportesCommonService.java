@@ -1,6 +1,5 @@
 package com.parking.service.reportes.common;
 
-import java.time.Duration;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,25 +53,21 @@ public class ReportesCommonService {
                 throw new IllegalArgumentException("fechaHasta no puede ser menor que fechaDesde");
             }
             rango = new RangoFechas(desdeLocal, hastaLocal);
-            validarRangoMaximo(rango, maxRangeDias);
             return rango;
         }
 
         if (desdeLocal != null) {
             rango = new RangoFechas(desdeLocal, desdeLocal.plusDays(1));
-            validarRangoMaximo(rango, maxRangeDias);
             return rango;
         }
 
         if (hastaLocal != null) {
             rango = new RangoFechas(hastaLocal.minusDays(1), hastaLocal);
-            validarRangoMaximo(rango, maxRangeDias);
             return rango;
         }
 
         LocalDate today = LocalDate.now(appClock);
         rango = new RangoFechas(today.atStartOfDay(), today.plusDays(1).atStartOfDay());
-        validarRangoMaximo(rango, maxRangeDias);
         return rango;
     }
 
@@ -105,13 +100,6 @@ public class ReportesCommonService {
 
         int toIndex = Math.min(fromIndex + sizeValue, filas.size());
         return filas.subList(fromIndex, toIndex);
-    }
-
-    private void validarRangoMaximo(RangoFechas rango, int maxRangeDias) {
-        long dias = Duration.between(rango.fechaDesde(), rango.fechaHasta()).toDays();
-        if (dias > maxRangeDias) {
-            throw new IllegalArgumentException("El rango maximo permitido es de " + maxRangeDias + " dias");
-        }
     }
 
     public record RangoFechas(LocalDateTime fechaDesde, LocalDateTime fechaHasta) {
